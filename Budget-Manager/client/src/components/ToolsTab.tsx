@@ -1,16 +1,51 @@
 import React, { useState } from "react";
 import { useSettings, useUpdateSettings } from "@/hooks/use-settings";
-import { useResetExpenses } from "@/hooks/use-expenses";
-import { RefreshCcw, Save, ShieldAlert, Download, Upload } from "lucide-react";
+import { useExpenses, useResetExpenses } from "@/hooks/use-expenses";
+import { useBills } from "@/hooks/use-bills";
+import { getLeftover, getEntertainmentUnused, formatMoney } from "@/lib/budget-utils";
+import { RefreshCcw, Save, ShieldAlert, Banknote, Download, Upload } from "lucide-react";
 
 export function ToolsTab() {
   const { data: settings } = useSettings();
+  const { data: bills } = useBills();
+  const { data: expenses } = useExpenses();
   const updateSettings = useUpdateSettings();
   const resetExpenses = useResetExpenses();
 
   const [savingsInput, setSavingsInput] = useState(settings?.savingsFund?.toString() || "0");
   const [rolloverInput, setRolloverInput] = useState(settings?.rolloverPool?.toString() || "0");
   const [bigGoalNameInput, setBigGoalNameInput] = useState((settings as any)?.bigGoalName || "Big Goal");
+
+  const [showPaydayFlow, setShowPaydayFlow] = useState(false);
+  const [newBalance, setNewBalance] = useState("");
+  const [newPayday, setNewPayday] = useState("");
+  const [willSweep, setWillSweep] = useState(true);
+  const [willReset, setWillReset] = useState(true);
+
+  const currentLeftover = getLeftover(settings, bills);
+  const unusedFun = getEntertainmentUnused(settings, expenses || []);
+  const sweepAmount = Math.max(0, currentLeftover) + unusedFun;
+
+  const handlePaydayConfirm = async () => {
+    if (!newBalance && !newPayday) return alert("Enter at least a new balance or payday date.");
+    const updates: any = {};
+    if (newBalance) updates.checkingBalance = parseFloat(newBalance).toFixed(2);
+    if (newPayday) updates.nextPayday = newPayday;
+    if (willSweep && sweepAmount > 0) {
+      updates.rolloverPool = (Number(settings?.rolloverPool || 0) + sweepAmount).toFixed(2);
+    }
+    await new Promise<void>(resolve => {
+      updateSettings.mutate(updates, { onSuccess: () => resolve() });
+    });
+    if (willReset) {
+      await new Promise<void>(resolve => {
+        resetExpenses.mutate(undefined, { onSuccess: () => resolve() });
+      });
+    }
+    setShowPaydayFlow(false);
+    setNewBalance("");
+    setNewPayday("");
+  };
 
   const handleSavePools = () => {
     updateSettings.mutate({
@@ -32,24 +67,99 @@ export function ToolsTab() {
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+
+      <div className="glass-panel p-6 border-success/20 bg-success/5">
+        <div className="flex items-center gap-3 mb-4">
+          <Banknote className="w-5 h-5 text-success" />
+          <div>
+            <h3 className="text-sm font-bold text-success">New Paycheck</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">Update your balance, sweep surplus, and start a fresh month</p>
+          </div>
+        </div>
+
+        {!showPaydayFlow ? (
+          <button
+            onClick={() => { setShowPaydayFlow(true); setNewBalance(settings?.checkingBalance?.toString() || ""); setNewPayday(settings?.nextPayday || ""); }}
+            className="w-full py-3 bg-success text-success-foreground font-semibold rounded-xl hover:bg-success/90 transition-colors shadow-lg shadow-success/20"
+          >
+            Start New Paycheck Flow
+          </button>
+        ) : (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground block mb-2">New checking balance</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-mono">$</span>
+                  <input
+                    type="number" step="0.01"
+                    value={newBalance} onChange={e => setNewBalance(e.target.value)}
+                    className="w-full bg-background border border-border rounded-xl pl-8 pr-4 py-3 text-sm font-mono focus:border-success outline-none"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground block mb-2">Next payday</label>
+                <input
+                  type="date"
+                  value={newPayday} onChange={e => setNewPayday(e.target.value)}
+                  className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm focus:border-success outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-3 p-4 bg-white/5 rounded-xl border border-white/10">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input type="checkbox" checked={willSweep} onChange={e => setWillSweep(e.target.checked)} className="accent-success mt-0.5 w-4 h-4" />
+                <div>
+                  <div className="text-sm font-semibold text-foreground">Sweep surplus to Goals Pool</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    {sweepAmount > 0 ? `Adds ${formatMoney(sweepAmount)} (leftover + unused fun money) to your pool` : "No surplus this month to sweep"}
+                  </div>
+                </div>
+              </label>
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input type="checkbox" checked={willReset} onChange={e => setWillReset(e.target.checked)} className="accent-success mt-0.5 w-4 h-4" />
+                <div>
+                  <div className="text-sm font-semibold text-foreground">Reset this month's expenses</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">Clears your expense log and resets bill paid status for the new month</div>
+                </div>
+              </label>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handlePaydayConfirm}
+                disabled={updateSettings.isPending || resetExpenses.isPending}
+                className="flex-1 py-3 bg-success text-success-foreground font-semibold rounded-xl hover:bg-success/90 transition-colors disabled:opacity-50"
+              >
+                {updateSettings.isPending || resetExpenses.isPending ? "Saving..." : "Confirm New Paycheck"}
+              </button>
+              <button onClick={() => setShowPaydayFlow(false)} className="px-5 py-3 bg-transparent border border-border text-foreground rounded-xl font-semibold">
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="glass-panel p-6 border-warning/20">
         <div className="mb-6">
           <h3 className="text-sm font-bold text-foreground">Tools</h3>
           <p className="text-xs text-muted-foreground mt-1">Housekeeping and data management</p>
         </div>
         
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           <button onClick={handleReset} className="p-4 bg-destructive/10 hover:bg-destructive/20 border border-destructive/30 rounded-xl text-destructive font-semibold flex flex-col items-center justify-center gap-2 transition-colors">
             <RefreshCcw className="w-5 h-5" />
-            <span className="text-xs">Monthly Reset</span>
+            <span className="text-xs">Monthly Reset Only</span>
           </button>
-          
-          <button onClick={() => alert("Export not implemented in this demo")} className="p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-foreground font-semibold flex flex-col items-center justify-center gap-2 transition-colors">
+          <button onClick={() => alert("Export is available in the History tab.")} className="p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-foreground font-semibold flex flex-col items-center justify-center gap-2 transition-colors">
             <Download className="w-5 h-5" />
-            <span className="text-xs">Export Backup</span>
+            <span className="text-xs">Export (History tab)</span>
           </button>
-          
-          <button onClick={() => alert("Import not implemented in this demo")} className="p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-foreground font-semibold flex flex-col items-center justify-center gap-2 transition-colors">
+          <button onClick={() => alert("Import not yet implemented.")} className="p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-foreground font-semibold flex flex-col items-center justify-center gap-2 transition-colors">
             <Upload className="w-5 h-5" />
             <span className="text-xs">Import Backup</span>
           </button>
@@ -58,8 +168,8 @@ export function ToolsTab() {
 
       <div className="glass-panel p-6">
         <div className="mb-6">
-          <h3 className="text-sm font-bold text-foreground">Fund Trackers</h3>
-          <p className="text-xs text-muted-foreground mt-1">Extra pools outside the 3 main rings</p>
+          <h3 className="text-sm font-bold text-foreground">Fund Trackers & Settings</h3>
+          <p className="text-xs text-muted-foreground mt-1">Manually adjust pools and customize labels</p>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -67,10 +177,10 @@ export function ToolsTab() {
             <label className="text-xs font-semibold text-muted-foreground block mb-2">Savings Fund</label>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-mono">$</span>
-              <input 
-                type="number" step="0.01" 
+              <input
+                type="number" step="0.01"
                 value={savingsInput} onChange={e => setSavingsInput(e.target.value)}
-                className="w-full bg-background border border-border rounded-xl pl-8 pr-4 py-3 text-sm font-mono focus:border-primary outline-none" 
+                className="w-full bg-background border border-border rounded-xl pl-8 pr-4 py-3 text-sm font-mono focus:border-primary outline-none"
               />
             </div>
           </div>
@@ -78,20 +188,20 @@ export function ToolsTab() {
             <label className="text-xs font-semibold text-muted-foreground block mb-2">Goals Pool (Rollover)</label>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-mono">$</span>
-              <input 
-                type="number" step="0.01" 
+              <input
+                type="number" step="0.01"
                 value={rolloverInput} onChange={e => setRolloverInput(e.target.value)}
-                className="w-full bg-background border border-border rounded-xl pl-8 pr-4 py-3 text-sm font-mono focus:border-primary outline-none" 
+                className="w-full bg-background border border-border rounded-xl pl-8 pr-4 py-3 text-sm font-mono focus:border-primary outline-none"
               />
             </div>
           </div>
           <div>
             <label className="text-xs font-semibold text-muted-foreground block mb-2">Middle Ring Label <span className="text-muted-foreground/60 font-normal">(shown on dashboard)</span></label>
-            <input 
+            <input
               type="text"
               value={bigGoalNameInput} onChange={e => setBigGoalNameInput(e.target.value)}
               placeholder="e.g. New Car, Moving Out, Vacation..."
-              className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm focus:border-primary outline-none" 
+              className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm focus:border-primary outline-none"
             />
           </div>
         </div>
@@ -101,16 +211,13 @@ export function ToolsTab() {
         </button>
       </div>
 
-
-
       <div className="glass-panel p-6 border-primary/20 bg-primary/5">
         <div className="flex items-start gap-3">
           <ShieldAlert className="w-5 h-5 text-primary shrink-0 mt-0.5" />
           <div>
             <h3 className="text-sm font-bold text-foreground">iPhone + iPad sync note</h3>
             <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-              This project already stores data in a shared database, so it can be used across devices when both devices are opening the same deployed app.
-              This version now has per-user accounts, so your budget data stays separated by login. For the same data to show on both devices, both devices still need to open the same deployed app connected to the same database and you need to log into the same account.
+              This app stores data in a shared database. To access the same data on multiple devices, open the same deployed app URL and log in with the same account on each device.
             </p>
           </div>
         </div>
@@ -122,7 +229,7 @@ export function ToolsTab() {
           <div>
             <h3 className="text-sm font-bold text-foreground">Privacy Note</h3>
             <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-              This application stores data in a persistent database attached to this project. Use a unique app password, and avoid putting real banking passwords or highly sensitive personal information inside the notes fields.
+              This application stores data in a persistent database attached to this project. Use a unique app password, and avoid putting real banking passwords or highly sensitive personal information inside note fields.
             </p>
           </div>
         </div>

@@ -1,7 +1,9 @@
 import React, { useMemo, useState } from "react";
 import { formatMoney, nextDueDays, getTotalFixed } from "@/lib/budget-utils";
 import { useBills, useCreateBill, useUpdateBill, useDeleteBill } from "@/hooks/use-bills";
-import { Loader2, Pencil, Save, Trash2, Plus, X, CalendarDays } from "lucide-react";
+import { Loader2, Pencil, Save, Trash2, Plus, X, CalendarDays, CheckCircle2, Circle } from "lucide-react";
+
+const currentMonthKey = new Date().toISOString().slice(0, 7);
 
 const emptyForm = { name: "", amount: "", icon: "💸", note: "", dueDay: "1", active: true };
 
@@ -125,13 +127,28 @@ export function BillsTab() {
                   </div>
                 ) : (
                   <div className="flex justify-between items-center gap-4">
-                    <div>
-                      <div className="text-sm font-bold text-foreground flex items-center gap-2"><span>{bill.icon}</span> {bill.name}</div>
-                      <div className="text-xs text-muted-foreground mt-1">{bill.note || "No note"} · due day {bill.dueDay} {bill.active === false ? '· paused' : ''}</div>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => updateBill.mutate({ id: bill.id, updates: { paidMonth: (bill as any).paidMonth === currentMonthKey ? "" : currentMonthKey } })}
+                        className={`flex-shrink-0 transition-colors ${(bill as any).paidMonth === currentMonthKey ? 'text-success' : 'text-muted-foreground hover:text-success'}`}
+                        title={(bill as any).paidMonth === currentMonthKey ? "Mark unpaid" : "Mark as paid"}
+                      >
+                        {(bill as any).paidMonth === currentMonthKey
+                          ? <CheckCircle2 className="w-5 h-5" />
+                          : <Circle className="w-5 h-5" />}
+                      </button>
+                      <div>
+                        <div className={`text-sm font-bold flex items-center gap-2 ${(bill as any).paidMonth === currentMonthKey ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
+                          <span>{bill.icon}</span> {bill.name}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">{bill.note || "No note"} · due day {bill.dueDay} {bill.active === false ? '· paused' : ''}</div>
+                      </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-base font-bold text-foreground font-mono">{formatMoney(bill.amount)}</div>
-                      <div className={`text-xs mt-1 font-medium ${isDanger ? 'text-destructive' : isWarn ? 'text-warning' : 'text-muted-foreground'}`}>{days <= 0 ? `due ${dueText}` : `due in ${dueText}`}</div>
+                      <div className={`text-base font-bold font-mono ${(bill as any).paidMonth === currentMonthKey ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{formatMoney(bill.amount)}</div>
+                      <div className={`text-xs mt-1 font-medium ${(bill as any).paidMonth === currentMonthKey ? 'text-success' : isDanger ? 'text-destructive' : isWarn ? 'text-warning' : 'text-muted-foreground'}`}>
+                        {(bill as any).paidMonth === currentMonthKey ? 'paid this month' : days <= 0 ? `due ${dueText}` : `due in ${dueText}`}
+                      </div>
                       <div className="flex justify-end gap-2 mt-3">
                         <button onClick={() => startEdit(bill)} className="text-muted-foreground hover:text-primary"><Pencil className="w-4 h-4" /></button>
                         <button onClick={() => deleteBill.mutate(bill.id)} className="text-muted-foreground hover:text-destructive"><Trash2 className="w-4 h-4" /></button>

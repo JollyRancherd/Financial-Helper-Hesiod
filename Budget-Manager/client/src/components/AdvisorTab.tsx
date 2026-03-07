@@ -2,7 +2,8 @@ import React, { useMemo } from "react";
 import { useSettings, useUpdateSettings } from "@/hooks/use-settings";
 import { useBills } from "@/hooks/use-bills";
 import { formatMoney, getDebtRemaining, getLeftover, getTotalFixed, getUpcomingBills } from "@/lib/budget-utils";
-import { Loader2, Sparkles, TrendingUp, ShieldCheck, TriangleAlert } from "lucide-react";
+import { PHASE1_ALLOCS } from "@/lib/constants";
+import { Loader2, Sparkles, TrendingUp, ShieldCheck, TriangleAlert, CalendarClock } from "lucide-react";
 
 export function AdvisorTab() {
   const { data: settings, isLoading: settingsLoading } = useSettings();
@@ -13,6 +14,15 @@ export function AdvisorTab() {
   const leftover = getLeftover(settings, bills);
   const dueSoon = useMemo(() => getUpcomingBills(bills || [], 7), [bills]);
   const recommendation = debtRemaining > 0 ? 1 : 2;
+
+  const monthlyDebtPayment = PHASE1_ALLOCS.find(a => a.id === "debt")?.recommended || 400;
+  const monthsToDebtFree = debtRemaining > 0 ? Math.ceil(debtRemaining / monthlyDebtPayment) : 0;
+  const debtFreeDate = useMemo(() => {
+    if (debtRemaining <= 0) return null;
+    const d = new Date();
+    d.setMonth(d.getMonth() + monthsToDebtFree);
+    return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  }, [debtRemaining, monthsToDebtFree]);
 
   if (settingsLoading || billsLoading || !settings) {
     return <div className="p-8 flex justify-center"><Loader2 className="animate-spin text-primary" /></div>;
@@ -32,6 +42,43 @@ export function AdvisorTab() {
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+
+      {debtFreeDate && (
+        <div className="glass-panel p-6 border-destructive/20 bg-destructive/5">
+          <div className="flex items-center gap-3 mb-3">
+            <CalendarClock className="w-5 h-5 text-destructive" />
+            <h3 className="text-sm font-bold text-destructive">Debt Payoff Countdown</h3>
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="glass-panel-soft p-3 text-center">
+              <div className="text-xs text-muted-foreground mb-1">Debt remaining</div>
+              <div className="text-xl font-bold text-destructive font-mono">{formatMoney(debtRemaining)}</div>
+            </div>
+            <div className="glass-panel-soft p-3 text-center">
+              <div className="text-xs text-muted-foreground mb-1">Monthly payment</div>
+              <div className="text-xl font-bold text-foreground font-mono">{formatMoney(monthlyDebtPayment)}</div>
+            </div>
+            <div className="glass-panel-soft p-3 text-center">
+              <div className="text-xs text-muted-foreground mb-1">Debt-free by</div>
+              <div className="text-lg font-bold text-success">{debtFreeDate}</div>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground mt-3">
+            At {formatMoney(monthlyDebtPayment)}/month, you'll be completely debt-free in approximately {monthsToDebtFree} month{monthsToDebtFree !== 1 ? "s" : ""}.
+          </p>
+        </div>
+      )}
+
+      {debtRemaining <= 0 && (
+        <div className="glass-panel p-5 border-success/30 bg-success/5 flex items-center gap-4">
+          <ShieldCheck className="w-8 h-8 text-success flex-shrink-0" />
+          <div>
+            <div className="font-bold text-success">Debt-free!</div>
+            <div className="text-xs text-muted-foreground mt-1">Your debt is cleared. Focus on building your goals and savings now.</div>
+          </div>
+        </div>
+      )}
+
       <div className="glass-panel p-6 border-primary/20">
         <div className="flex justify-between items-start gap-4 flex-wrap mb-6">
           <div>

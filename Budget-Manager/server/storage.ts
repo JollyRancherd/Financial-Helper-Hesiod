@@ -108,6 +108,7 @@ export class DatabaseStorage implements IStorage {
 
   async resetExpenses(userId: number): Promise<void> {
     await db.delete(expenses).where(eq(expenses.userId, userId));
+    await db.update(recurringBills).set({ paidMonth: "" }).where(eq(recurringBills.userId, userId));
   }
 
   async getBills(userId: number): Promise<RecurringBill[]> {

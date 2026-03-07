@@ -105,7 +105,11 @@ export async function registerRoutes(
     try {
       const bodySchema = api.expenses.create.input.extend({ amount: z.coerce.string() });
       const input = bodySchema.parse(req.body);
-      const created = await storage.createExpense(getUserId(req)!, input);
+      const userId = getUserId(req)!;
+      const created = await storage.createExpense(userId, input);
+      const current = await storage.getSettings(userId);
+      const newBalance = Math.max(0, Number(current.checkingBalance) - Number(input.amount));
+      await storage.updateSettings(userId, { checkingBalance: newBalance.toFixed(2) });
       res.status(201).json(created);
     } catch (err) {
       if (err instanceof z.ZodError) {

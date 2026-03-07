@@ -47,6 +47,7 @@ export const recurringBills = pgTable("recurring_bills", {
   note: text("note").notNull().default(""),
   dueDay: integer("due_day").notNull(),
   active: boolean("active").notNull().default(true),
+  paidMonth: text("paid_month").notNull().default(""),
 });
 
 export const unlockedGoals = pgTable("unlocked_goals", {
