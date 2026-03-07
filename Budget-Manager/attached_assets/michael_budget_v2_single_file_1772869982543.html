@@ -1,0 +1,1206 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Michael Budget v2</title>
+  <meta name="theme-color" content="#0b1220" />
+  <style>
+    :root{
+      --bg:#060b16;
+      --bg2:#0a1326;
+      --panel:#101c35;
+      --panel-2:#0c172b;
+      --line:#21385f;
+      --line-soft:#1a2e4d;
+      --text:#d7e2f1;
+      --muted:#89a0bc;
+      --muted-2:#547091;
+      --white:#f8fbff;
+      --blue:#4f8cff;
+      --blue-2:#7fb0ff;
+      --green:#2fd17b;
+      --green-2:#aaf0cb;
+      --red:#ff5d6c;
+      --orange:#ffb347;
+      --orange-2:#ff9b54;
+      --purple:#b592ff;
+      --pink:#ff82bd;
+      --teal:#44d4d8;
+      --shadow:0 18px 38px rgba(0,0,0,.34);
+      --radius:16px;
+    }
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html,body{margin:0;background:
+      radial-gradient(circle at top, #13254a 0%, #08101d 38%, #060b16 100%);
+      color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+    body{min-height:100vh}
+    button,input,select{font:inherit}
+    .app{max-width:620px;margin:0 auto;padding:0 14px 40px}
+    .sticky{
+      position:sticky;top:0;z-index:10;
+      padding:14px 0 12px;
+      backdrop-filter: blur(10px);
+      background:linear-gradient(180deg, rgba(6,11,22,.94), rgba(6,11,22,.72), rgba(6,11,22,.3));
+    }
+    .header-card,.card,.soft-card{
+      border:1px solid rgba(122,155,214,.13);
+      box-shadow:var(--shadow);
+      background:linear-gradient(180deg, rgba(19,31,57,.95), rgba(11,21,41,.96));
+      border-radius:var(--radius);
+    }
+    .header-card{padding:14px}
+    .card{padding:14px 15px}
+    .soft-card{
+      background:linear-gradient(180deg, rgba(13,24,45,.94), rgba(10,19,35,.96));
+      padding:12px 13px;
+      border-radius:14px;
+    }
+    .row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+    .col{display:flex;flex-direction:column}
+    .tiny{font-size:10px;color:var(--muted-2);letter-spacing:.18em;text-transform:uppercase}
+    .small{font-size:12px;color:var(--muted)}
+    .title{font-size:24px;font-weight:800;color:var(--white);letter-spacing:-.03em}
+    .big{font-size:30px;font-weight:800;color:var(--white);letter-spacing:-.04em}
+    .number{font-variant-numeric:tabular-nums}
+    .section{margin-top:14px}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+    .btn{
+      appearance:none;border:none;cursor:pointer;border-radius:12px;
+      background:#1d335c;color:var(--blue-2);padding:10px 12px;font-weight:700;
+      transition:transform .16s ease, box-shadow .2s ease, background .2s ease, opacity .2s ease;
+      box-shadow:0 8px 16px rgba(0,0,0,.22)
+    }
+    .btn:hover{transform:translateY(-1px)}
+    .btn:active{transform:scale(.97)}
+    .btn.primary{background:linear-gradient(180deg, #4f8cff, #3c78f0);color:white}
+    .btn.green{background:linear-gradient(180deg, #32d07f, #1cad63);color:#052412}
+    .btn.warn{background:linear-gradient(180deg, #ffb85c, #f39436);color:#2d1600}
+    .btn.ghost{background:transparent;color:var(--muted);box-shadow:none;border:1px solid rgba(122,155,214,.12)}
+    .btn.pill{border-radius:999px;padding:8px 12px}
+    .switch,.tabs{
+      display:flex;gap:5px;padding:5px;border-radius:14px;background:rgba(10,20,38,.8);
+      border:1px solid rgba(122,155,214,.12)
+    }
+    .switch button,.tabs button{
+      flex:1;border:none;background:transparent;color:var(--muted);
+      border-radius:11px;padding:10px 6px;cursor:pointer;transition:all .22s ease;font-weight:700
+    }
+    .switch button.active,.tabs button.active{
+      background:linear-gradient(180deg, rgba(79,140,255,.24), rgba(79,140,255,.14));
+      color:var(--blue-2);
+      box-shadow:inset 0 0 0 1px rgba(79,140,255,.22), 0 8px 18px rgba(0,0,0,.14)
+    }
+    .badge{
+      padding:6px 10px;border-radius:999px;font-size:11px;font-weight:800;
+      transition:all .22s ease
+    }
+    .input,.select{
+      width:100%;border-radius:12px;border:1px solid rgba(122,155,214,.16);
+      background:rgba(8,15,29,.9);color:var(--white);padding:12px 13px;outline:none;
+      transition:border-color .2s ease, transform .15s ease, box-shadow .2s ease
+    }
+    .input:focus,.select:focus{
+      border-color:rgba(79,140,255,.52);
+      box-shadow:0 0 0 4px rgba(79,140,255,.12)
+    }
+    .input::placeholder{color:var(--muted-2)}
+    .tab-pane{opacity:0;transform:translateY(8px);animation:fadeSlide .28s ease forwards}
+    @keyframes fadeSlide{to{opacity:1;transform:translateY(0)}}
+    .save-toast{
+      position:fixed;left:50%;top:16px;transform:translateX(-50%) translateY(-14px);
+      background:linear-gradient(180deg, rgba(47,209,123,.96), rgba(28,173,99,.96));
+      color:#062913;padding:9px 14px;border-radius:999px;font-size:12px;font-weight:800;
+      box-shadow:0 14px 30px rgba(0,0,0,.26);opacity:0;pointer-events:none;transition:all .22s ease;z-index:30
+    }
+    .save-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+    .progress{
+      width:100%;height:8px;border-radius:999px;background:rgba(6,11,22,.9);overflow:hidden;margin-top:8px
+    }
+    .progress>div{height:100%;border-radius:999px;transition:width .45s ease}
+    .list{display:flex;flex-direction:column;gap:9px}
+    .item{
+      background:linear-gradient(180deg, rgba(17,30,56,.95), rgba(11,20,37,.96));
+      border:1px solid rgba(122,155,214,.1);
+      border-radius:14px;padding:12px 13px;
+      box-shadow:var(--shadow);
+      transition:transform .16s ease, border-color .22s ease, box-shadow .22s ease
+    }
+    .item:hover{transform:translateY(-1px)}
+    .item.success{border-color:rgba(47,209,123,.28);box-shadow:0 0 0 1px rgba(47,209,123,.12), var(--shadow)}
+    .item.warn{border-color:rgba(255,179,71,.3)}
+    .item.danger{border-color:rgba(255,93,108,.28)}
+    .ring{
+      width:86px;height:86px;border-radius:50%;display:grid;place-items:center;position:relative;
+      transition:transform .2s ease, box-shadow .2s ease
+    }
+    .ring:hover{transform:scale(1.03)}
+    .ring::before{
+      content:"";position:absolute;inset:9px;border-radius:50%;
+      background:linear-gradient(180deg, rgba(16,28,53,.98), rgba(11,20,37,.98))
+    }
+    .ring-content{position:relative;z-index:1;text-align:center}
+    .goal-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+    .goal-card{
+      padding:12px;border-radius:14px;border:1px solid rgba(122,155,214,.11);
+      background:linear-gradient(180deg, rgba(14,26,48,.95), rgba(10,19,35,.96));
+      box-shadow:var(--shadow)
+    }
+    .goal-status{
+      padding:4px 8px;border-radius:999px;font-size:10px;font-weight:800;display:inline-block
+    }
+    .footer{text-align:center;font-size:11px;color:var(--muted-2);padding:18px 8px 8px}
+    .hide{display:none!important}
+    .money-hero{
+      padding:14px;border-radius:16px;
+      background:linear-gradient(180deg, rgba(15,28,51,.98), rgba(9,17,32,.98));
+      border:1px solid rgba(122,155,214,.12);box-shadow:var(--shadow)
+    }
+    .pulse-green{box-shadow:0 0 0 0 rgba(47,209,123,.45);animation:pulse 1.8s infinite}
+    @keyframes pulse{
+      0%{box-shadow:0 0 0 0 rgba(47,209,123,.34)}
+      70%{box-shadow:0 0 0 12px rgba(47,209,123,0)}
+      100%{box-shadow:0 0 0 0 rgba(47,209,123,0)}
+    }
+    .fade-in{animation:fadeSlide .24s ease both}
+    .tag{
+      display:inline-flex;align-items:center;gap:5px;padding:6px 9px;border-radius:999px;
+      background:rgba(255,255,255,.04);color:var(--muted);font-size:11px;font-weight:700
+    }
+    .help{font-size:11px;color:var(--muted);line-height:1.45}
+    .danger-text{color:var(--red)}
+    .good-text{color:var(--green)}
+    .warn-text{color:var(--orange)}
+    .blue-text{color:var(--blue-2)}
+    .right{text-align:right}
+    .center{text-align:center}
+    .sp8{height:8px}.sp12{height:12px}.sp14{height:14px}
+    @media (max-width:560px){
+      .goal-grid,.grid3{grid-template-columns:1fr}
+      .grid2{grid-template-columns:1fr}
+      .title{font-size:22px}
+      .big{font-size:26px}
+    }
+  </style>
+</head>
+<body>
+  <div id="toast" class="save-toast">✓ Saved</div>
+
+  <div class="app">
+    <div class="sticky">
+      <div class="header-card">
+        <div class="row" style="margin-bottom:12px">
+          <div>
+            <div class="tiny">MICHAEL'S</div>
+            <div class="title">Financial Roadmap v2 🗺️</div>
+          </div>
+          <div class="row">
+            <div class="switch" id="phaseSwitch">
+              <button data-phase="1" class="active">Phase 1</button>
+              <button data-phase="2">Phase 2</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="phaseBanner" class="soft-card">
+          <div class="row">
+            <div>
+              <div id="phaseTitle" style="font-size:14px;font-weight:800;color:var(--red)">🔥 Debt Destroyer</div>
+              <div id="phaseSub" class="small" style="margin-top:3px">Now → March 20 · Debt free next paycheck!</div>
+            </div>
+            <div class="right">
+              <div class="tiny">MONTHLY</div>
+              <div id="monthlyDisplay" class="big number good-text">$2,000</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sp12"></div>
+
+        <div class="row">
+          <div>
+            <div class="tiny">BIWEEKLY PAYCHECK</div>
+            <div id="paycheckDisplay" class="big number blue-text">$1,000</div>
+          </div>
+          <div>
+            <div class="tiny">BUFFER</div>
+            <div class="small" style="font-weight:800;color:var(--orange)">$300 locked</div>
+          </div>
+          <div id="statusBadge" class="badge" style="color:var(--green);background:rgba(47,209,123,.16)">On Track ✓</div>
+          <button id="editPayBtn" class="btn">Update ✏️</button>
+        </div>
+
+        <div id="payEditRow" class="row hide" style="margin-top:10px">
+          <input id="payInput" class="input" type="number" step="0.01" placeholder="Enter paycheck" style="max-width:170px" />
+          <button id="savePayBtn" class="btn primary">Save</button>
+          <button id="cancelPayBtn" class="btn ghost">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="section grid3">
+      <div class="money-hero">
+        <div class="tiny">Checking Balance</div>
+        <div id="checkingDisplay" class="big number">$0.00</div>
+        <div class="small">Your real current account balance</div>
+      </div>
+      <div class="money-hero">
+        <div class="tiny">Safe To Spend</div>
+        <div id="safeSpendDisplay" class="big number good-text">$0.00</div>
+        <div class="small">After reserves and protection</div>
+      </div>
+      <div class="money-hero">
+        <div class="tiny">Until Payday</div>
+        <div id="daysToPayDisplay" class="big number blue-text">14d</div>
+        <div id="dailySafeDisplay" class="small">Daily safe spend: $0/day</div>
+      </div>
+    </div>
+
+    <div class="section card">
+      <div class="row">
+        <div>
+          <div class="tiny">YOUR GOALS</div>
+          <div class="small">Update these as you save</div>
+        </div>
+        <div class="tag">🎯 Progress tracker</div>
+      </div>
+      <div class="sp12"></div>
+      <div id="mainGoals" class="goal-grid"></div>
+      <div class="sp12"></div>
+      <div class="soft-card center" id="debtRemainingCard">
+        <div class="tiny">Debt Remaining</div>
+        <div id="debtRemainingDisplay" class="big number danger-text">$1226.37</div>
+        <div id="debtHint" class="small">Expected gone: <span class="warn-text">~March 20, 2026</span></div>
+      </div>
+    </div>
+
+    <div class="section tabs" id="tabs">
+      <button data-tab="dashboard" class="active">🏠 Home</button>
+      <button data-tab="budget">📊 Budget</button>
+      <button data-tab="bills">📋 Bills</button>
+      <button data-tab="log">➕ Log</button>
+      <button data-tab="history">🕐 History</button>
+      <button data-tab="unlocked">🚀 Goals</button>
+      <button data-tab="tools">⚙️ Tools</button>
+    </div>
+
+    <div id="tab-dashboard" class="section tab-pane"></div>
+    <div id="tab-budget" class="section tab-pane hide"></div>
+    <div id="tab-bills" class="section tab-pane hide"></div>
+    <div id="tab-log" class="section tab-pane hide"></div>
+    <div id="tab-history" class="section tab-pane hide"></div>
+    <div id="tab-unlocked" class="section tab-pane hide"></div>
+    <div id="tab-tools" class="section tab-pane hide"></div>
+
+    <div class="footer">
+      Build smart. Spend safe. Unlock goals without hurting yourself 💪
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "michael-budget-v2-single";
+    const TOTAL_DEBT = 1226.37;
+    const BUFFER = 300;
+    const APARTMENT_GOAL = 3000;
+    const EMERGENCY_GOAL = 1000;
+
+    const FIXED_BILLS = [
+      { id: "spotify", name: "Spotify", amount: 12.00, icon: "🎵", note: "", dueDay: 5 },
+      { id: "gym", name: "Gym", amount: 32.00, icon: "💪", note: "", dueDay: 9 },
+      { id: "finasteride", name: "Finasteride + Spray", amount: 50.00, icon: "💊", note: "$150 every 3 months", dueDay: 14 },
+      { id: "ipad", name: "iPad Air M3", amount: 50.94, icon: "📱", note: "", dueDay: 18 },
+      { id: "pencil", name: "Apple Pencil", amount: 17.94, icon: "✏️", note: "", dueDay: 22 },
+      { id: "keyboard", name: "Magic Keyboard", amount: 7.14, icon: "⌨️", note: "", dueDay: 27 },
+    ];
+
+    const PHASE1_ALLOCS = [
+      { id: "debt", name: "Debt Payoff", recommended: 400, color: "#ff5d6c", icon: "💳", note: "Final push — gone by ~March 20" },
+      { id: "emergency", name: "Emergency Fund", recommended: 150, color: "#4f8cff", icon: "🛡️", note: "Target: $1,000" },
+      { id: "groceries", name: "Groceries", recommended: 300, color: "#ff9b54", icon: "🛒", note: "Your estimate" },
+      { id: "gas", name: "Gas", recommended: 35, color: "#ff9b54", icon: "⛽", note: "~1 tank/month" },
+      { id: "entertainment", name: "Fun Money", recommended: 100, color: "#b592ff", icon: "🎉", note: "You deserve some" },
+      { id: "savings", name: "Savings", recommended: 0, color: "#2fd17b", icon: "💰", note: "Paused — starts Phase 2" },
+      { id: "apartment", name: "Apartment Fund", recommended: 0, color: "#ffb347", icon: "🏠", note: "Starts April 1st" },
+    ];
+
+    const PHASE2_ALLOCS = [
+      { id: "apartment", name: "Apartment Fund", recommended: 600, color: "#ffb347", icon: "🏠", note: "Goal: $3,000 by Nov/Dec 2026" },
+      { id: "emergency", name: "Emergency Fund", recommended: 300, color: "#4f8cff", icon: "🛡️", note: "Build to $3,000 long term" },
+      { id: "savings", name: "General Savings", recommended: 200, color: "#2fd17b", icon: "💰", note: "Long-term wealth building" },
+      { id: "groceries", name: "Groceries", recommended: 300, color: "#ff9b54", icon: "🛒", note: "" },
+      { id: "gas", name: "Gas", recommended: 35, color: "#ff9b54", icon: "⛽", note: "" },
+      { id: "mom", name: "Mom", recommended: 500, color: "#ff82bd", icon: "❤️", note: "Give back — you’re stable now" },
+      { id: "entertainment", name: "Fun Money", recommended: 150, color: "#b592ff", icon: "🎉", note: "You earned this!" },
+    ];
+
+    const DEFAULT_UNLOCKED_GOALS = [
+      { id: 1, name: "China Trip", cost: 2500, priority: "High", note: "Flight + hotel + spending", useProtected: false },
+      { id: 2, name: "Gaming PC", cost: 1800, priority: "Medium", note: "Full setup", useProtected: false },
+      { id: 3, name: "Car Down Payment", cost: 4000, priority: "High", note: "Keep it safe", useProtected: false },
+      { id: 4, name: "Japan Trip", cost: 7000, priority: "High", note: "Big trip", useProtected: false },
+    ];
+
+    const DEFAULT_STATE = {
+      phase: 1,
+      tab: "dashboard",
+      paycheck: 1000,
+      checkingBalance: 0,
+      nextPayday: "",
+      expenses: [],
+      emergencyFund: 0,
+      apartmentFund: 0,
+      debtPaid: 0,
+      savingsFund: 0,
+      rolloverPool: 0,
+      unlockedGoals: DEFAULT_UNLOCKED_GOALS
+    };
+
+    let state = loadState();
+
+    function clone(obj){ return JSON.parse(JSON.stringify(obj)); }
+    function loadState(){
+      try{
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if(!raw) return clone(DEFAULT_STATE);
+        return { ...clone(DEFAULT_STATE), ...JSON.parse(raw) };
+      }catch{
+        return clone(DEFAULT_STATE);
+      }
+    }
+    function saveState(show=true){
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      if(show) showToast();
+    }
+    let toastTimer = null;
+    function showToast(text="✓ Saved"){
+      const el = document.getElementById("toast");
+      el.textContent = text;
+      el.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(()=>el.classList.remove("show"), 1200);
+    }
+
+    function fmt(n){ return (n < 0 ? "-$" : "$") + Math.abs(Number(n||0)).toFixed(2); }
+    function allAllocs(){ return state.phase === 1 ? PHASE1_ALLOCS : PHASE2_ALLOCS; }
+    function totalFixed(){ return FIXED_BILLS.reduce((s,b)=>s+b.amount,0); }
+    function monthly(){ return Number(state.paycheck || 0) * 2; }
+    function totalAllocs(){ return allAllocs().reduce((s,a)=>s+a.recommended,0); }
+    function leftover(){ return monthly() - BUFFER - totalFixed() - totalAllocs(); }
+    function spentByAlloc(){
+      const out = {};
+      state.expenses.forEach(e => out[e.allocId] = (out[e.allocId] || 0) + Number(e.amount));
+      return out;
+    }
+    function spentThisMonth(){ return state.expenses.reduce((s,e)=>s+Number(e.amount),0); }
+    function debtRemaining(){ return Math.max(0, TOTAL_DEBT - Number(state.debtPaid||0)); }
+    function getStatus(){
+      const left = leftover();
+      if(left < 0) return { text:"Over Budget", color:"var(--red)", bg:"rgba(255,93,108,.16)" };
+      if(left < 50) return { text:"Nearly Full", color:"var(--orange)", bg:"rgba(255,179,71,.18)" };
+      return { text:"On Track ✓", color:"var(--green)", bg:"rgba(47,209,123,.16)" };
+    }
+    function calcDaysUntil(dateStr){
+      if(!dateStr) return null;
+      const now = new Date();
+      const target = new Date(dateStr + "T12:00:00");
+      const ms = target - new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12);
+      return Math.ceil(ms / 86400000);
+    }
+    function nextDueDays(day){
+      const now = new Date();
+      let year = now.getFullYear();
+      let month = now.getMonth();
+      let due = new Date(year, month, day, 12);
+      const todayNoon = new Date(year, month, now.getDate(), 12);
+      if(due < todayNoon) due = new Date(year, month + 1, day, 12);
+      return Math.ceil((due - todayNoon) / 86400000);
+    }
+    function reservedMoney(){
+      const dueSoon = FIXED_BILLS
+        .filter(b => nextDueDays(b.dueDay) <= 14)
+        .reduce((s,b)=>s+b.amount,0);
+
+      const emergencyFloor = Math.min(Number(state.emergencyFund||0), 300);
+      return BUFFER + dueSoon + emergencyFloor;
+    }
+    function safeToSpend(){
+      return Math.max(0, Number(state.checkingBalance||0) - reservedMoney());
+    }
+    function daysToPay(){ 
+      const d = calcDaysUntil(state.nextPayday);
+      return d === null ? null : d;
+    }
+    function dailySafeSpend(){
+      const d = daysToPay();
+      if(d === null || d <= 0) return safeToSpend();
+      return safeToSpend() / d;
+    }
+    function entertainmentBudget(){
+      const a = allAllocs().find(x=>x.id==="entertainment");
+      return a ? a.recommended : 0;
+    }
+    function entertainmentSpent(){
+      return spentByAlloc().entertainment || 0;
+    }
+    function entertainmentUnused(){
+      return Math.max(0, entertainmentBudget() - entertainmentSpent());
+    }
+    function projectedGoalMoney(){
+      return Number(state.rolloverPool||0) + Number(state.savingsFund||0) + Math.max(0, leftover()) + Number(state.apartmentFund||0);
+    }
+    function affordability(goal){
+      const protectedMoney = projectedGoalMoney();
+      const safeCash = safeToSpend();
+      const money = goal.useProtected ? protectedMoney + safeCash : protectedMoney;
+      const diff = money - Number(goal.cost||0);
+      let level = "red";
+      if(diff >= 0) level = "green";
+      else if(diff >= -(goal.cost * 0.15)) level = "yellow";
+      return { money, diff, level };
+    }
+    function monthlyGoalPace(){
+      return Math.max(0, leftover()) + entertainmentUnused() + 50;
+    }
+    function monthsUntil(cost){
+      const pace = monthlyGoalPace();
+      if(pace <= 0) return null;
+      return Math.ceil(Math.max(0, cost - projectedGoalMoney()) / pace);
+    }
+
+    function render(){
+      renderHeader();
+      renderMainGoals();
+      renderDashboard();
+      renderBudget();
+      renderBills();
+      renderLog();
+      renderHistory();
+      renderUnlockedGoals();
+      renderTools();
+      renderTabs();
+    }
+
+    function renderHeader(){
+      document.querySelectorAll("#phaseSwitch button").forEach(btn => {
+        btn.classList.toggle("active", Number(btn.dataset.phase) === state.phase);
+      });
+
+      const status = getStatus();
+      const badge = document.getElementById("statusBadge");
+      badge.textContent = status.text;
+      badge.style.color = status.color;
+      badge.style.background = status.bg;
+
+      document.getElementById("monthlyDisplay").textContent = "$" + monthly().toLocaleString();
+      document.getElementById("paycheckDisplay").textContent = "$" + Number(state.paycheck||0).toLocaleString();
+      document.getElementById("checkingDisplay").textContent = fmt(state.checkingBalance||0);
+      document.getElementById("safeSpendDisplay").textContent = fmt(safeToSpend());
+      const d = daysToPay();
+      document.getElementById("daysToPayDisplay").textContent = d === null ? "Set" : (d <= 0 ? "Today" : `${d}d`);
+      document.getElementById("dailySafeDisplay").textContent = d === null ? "Set your next payday below" : `Daily safe spend: ${fmt(dailySafeSpend())}/day`;
+
+      const phaseTitle = document.getElementById("phaseTitle");
+      const phaseSub = document.getElementById("phaseSub");
+      const banner = document.getElementById("phaseBanner");
+      if(state.phase === 1){
+        phaseTitle.textContent = "🔥 Debt Destroyer";
+        phaseTitle.style.color = "var(--red)";
+        phaseSub.textContent = "Now → March 20 · Debt free next paycheck!";
+        banner.style.borderColor = "rgba(255,93,108,.18)";
+      }else{
+        phaseTitle.textContent = "🚀 Apartment Sprint";
+        phaseTitle.style.color = "var(--green)";
+        phaseSub.textContent = "April 1 onward · Debt free — stack that cash";
+        banner.style.borderColor = "rgba(47,209,123,.18)";
+      }
+
+      const remain = debtRemaining();
+      const debtEl = document.getElementById("debtRemainingDisplay");
+      const debtCard = document.getElementById("debtRemainingCard");
+      if(remain === 0){
+        debtEl.textContent = "🎉 DEBT FREE!";
+        debtEl.className = "big good-text";
+        debtCard.classList.add("pulse-green");
+        document.getElementById("debtHint").innerHTML = `<span class="good-text">Phase 2 unlocked. Start stacking cash.</span>`;
+      } else {
+        debtEl.textContent = fmt(remain);
+        debtEl.className = "big number danger-text";
+        debtCard.classList.remove("pulse-green");
+        document.getElementById("debtHint").innerHTML = `Expected gone: <span class="warn-text">~March 20, 2026</span>`;
+      }
+    }
+
+    function ring(color, value, max, label, key){
+      const pct = max <= 0 ? 0 : Math.min(100, Math.round((value/max)*100));
+      return `
+        <div class="goal-card fade-in">
+          <div class="center">
+            <div class="ring" style="margin:0 auto;background:conic-gradient(${color} ${pct}%, rgba(8,15,29,.9) ${pct}% 100%)">
+              <div class="ring-content">
+                <div style="font-size:13px;font-weight:800;color:var(--white)">${pct}%</div>
+                <div class="small number">$${Number(value||0).toFixed(0)}</div>
+              </div>
+            </div>
+            <div class="sp8"></div>
+            <div style="font-size:12px;font-weight:700;color:var(--white)">${label}</div>
+            <div class="small number">${fmt(value)} / ${fmt(max)}</div>
+            <div class="sp8"></div>
+            <button class="btn pill" onclick="updateNumber('${key}','${label}')">Update</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderMainGoals(){
+      document.getElementById("mainGoals").innerHTML = [
+        ring("#4f8cff", state.emergencyFund, EMERGENCY_GOAL, "Emergency Fund", "emergencyFund"),
+        ring("#ffb347", state.apartmentFund, APARTMENT_GOAL, "Apartment Fund", "apartmentFund"),
+        ring("#ff5d6c", state.debtPaid, TOTAL_DEBT, "Debt Cleared", "debtPaid")
+      ].join("");
+    }
+
+    function renderDashboard(){
+      const d = daysToPay();
+      const safe = safeToSpend();
+      const rollover = entertainmentUnused() + Number(state.rolloverPool||0);
+      const pace = monthlyGoalPace();
+
+      document.getElementById("tab-dashboard").innerHTML = `
+        <div class="list">
+          <div class="card">
+            <div class="row">
+              <div>
+                <div class="tiny">Money until next payday</div>
+                <div class="small">This helps stop overspending late in the cycle</div>
+              </div>
+              <div class="tag">⏳ Payday guard</div>
+            </div>
+            <div class="sp12"></div>
+            <div class="grid3">
+              <div class="soft-card">
+                <div class="tiny">Next Payday</div>
+                <div class="big number blue-text">${state.nextPayday ? state.nextPayday : "Set date"}</div>
+                <div class="small">${d === null ? "Enter it below" : (d <= 0 ? "Payday is today" : `${d} day(s) left`)}</div>
+              </div>
+              <div class="soft-card">
+                <div class="tiny">Safe To Spend</div>
+                <div class="big number good-text">${fmt(safe)}</div>
+                <div class="small">Protected after reserves</div>
+              </div>
+              <div class="soft-card">
+                <div class="tiny">Daily Safe Spend</div>
+                <div class="big number warn-text">${fmt(dailySafeSpend())}</div>
+                <div class="small">Per day until payday</div>
+              </div>
+            </div>
+            <div class="sp12"></div>
+            <div class="grid2">
+              <div>
+                <div class="tiny" style="margin-bottom:6px">Current checking balance</div>
+                <input id="checkingInputDash" class="input" type="number" step="0.01" placeholder="Enter current balance" value="${state.checkingBalance}" />
+              </div>
+              <div>
+                <div class="tiny" style="margin-bottom:6px">Next payday</div>
+                <input id="nextPayInputDash" class="input" type="date" value="${state.nextPayday}" />
+              </div>
+            </div>
+            <div class="sp12"></div>
+            <button class="btn primary" onclick="saveDashboardMoney()">Save money tracker</button>
+          </div>
+
+          <div class="grid2">
+            <div class="card">
+              <div class="tiny">Rollover money</div>
+              <div class="big number">${fmt(rollover)}</div>
+              <div class="small">Unused fun money + rollover pool</div>
+              <div class="sp12"></div>
+              <div class="help">This is money you didn’t burn on random stuff. Move it into future goals.</div>
+            </div>
+            <div class="card">
+              <div class="tiny">Monthly goal pace</div>
+              <div class="big number good-text">${fmt(pace)}</div>
+              <div class="small">Estimated monthly power for future goals</div>
+              <div class="sp12"></div>
+              <div class="help">This uses your leftover, unused fun money, and a small cushion.</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="row">
+              <div>
+                <div class="tiny">Quick reality check</div>
+                <div class="small">A simple view of where your money stands</div>
+              </div>
+            </div>
+            <div class="sp12"></div>
+            <div class="grid2">
+              <div class="soft-card">
+                <div class="tiny">Reserved Money</div>
+                <div class="big number">${fmt(reservedMoney())}</div>
+                <div class="small">Buffer + due soon bills + emergency floor</div>
+              </div>
+              <div class="soft-card">
+                <div class="tiny">Spent Logged</div>
+                <div class="big number">${fmt(spentThisMonth())}</div>
+                <div class="small">Expenses logged this cycle</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderBudget(){
+      const spent = spentByAlloc();
+      const allocs = allAllocs();
+      const top = `
+        <div class="card">
+          <div class="row">
+            <div>
+              <div class="tiny">${state.phase === 1 ? "Phase 1 · Debt Destroyer Budget" : "Phase 2 · Apartment Sprint Budget"}</div>
+              <div class="small">See what is planned versus what you actually spent</div>
+            </div>
+            <div class="tag">📊 Budget map</div>
+          </div>
+          <div class="sp12"></div>
+          <div class="soft-card">
+            <div class="row">
+              <div>
+                <div style="font-size:13px;font-weight:700;color:var(--white)">Fixed Bills</div>
+                <div class="small">Spotify · Gym · Apple · Finasteride</div>
+              </div>
+              <div class="right">
+                <div style="font-size:16px;font-weight:800;color:var(--white)">${fmt(totalFixed())}</div>
+                <div class="tiny">monthly</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      const items = allocs.map(a => {
+        const current = spent[a.id] || 0;
+        const pct = a.recommended > 0 ? Math.min(100, (current / a.recommended) * 100) : 0;
+        const klass = current > a.recommended && a.recommended > 0 ? "danger" : "";
+        return `
+          <div class="item ${klass}">
+            <div class="row" style="align-items:flex-start">
+              <div>
+                <div style="font-size:14px;font-weight:800;color:var(--white)">${a.icon} ${a.name}</div>
+                <div class="small">${a.note || ""}</div>
+              </div>
+              <div class="right">
+                <div style="font-size:16px;font-weight:800;color:${a.recommended === 0 ? 'var(--muted-2)' : a.color}" class="number">${a.recommended === 0 ? "—" : fmt(a.recommended)}</div>
+                ${current > 0 ? `<div class="small ${current > a.recommended ? 'danger-text' : ''}">spent: ${fmt(current)}</div>` : ``}
+              </div>
+            </div>
+            ${a.recommended > 0 ? `<div class="progress"><div style="width:${pct}%;background:${current > a.recommended ? 'var(--red)' : a.color}"></div></div>` : ``}
+          </div>
+        `;
+      }).join("");
+
+      document.getElementById("tab-budget").innerHTML = `
+        <div class="list">
+          ${top}
+          ${items}
+          <div class="card">
+            <div class="row"><span class="small">Fixed Bills</span><strong class="number">${fmt(totalFixed())}</strong></div>
+            <div class="sp8"></div>
+            <div class="row"><span class="small">Allocations</span><strong class="number">${fmt(totalAllocs())}</strong></div>
+            <div class="sp8"></div>
+            <div class="row"><span class="small">Buffer (locked)</span><strong class="number warn-text">${fmt(BUFFER)}</strong></div>
+            <div class="sp12"></div>
+            <div class="soft-card row">
+              <span style="font-size:14px;font-weight:800;color:var(--white)">Unallocated</span>
+              <span class="big number ${leftover()<0?'danger-text':leftover()<50?'warn-text':'good-text'}">${fmt(leftover())}</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderBills(){
+      const html = FIXED_BILLS.map(b => {
+        const days = nextDueDays(b.dueDay);
+        let statusClass = "";
+        let dueText = `${days} day(s)`;
+        if(days <= 2){ statusClass = "danger"; dueText = days === 0 ? "today" : `${days} day(s)`; }
+        else if(days <= 7){ statusClass = "warn"; }
+        return `
+          <div class="item ${statusClass}">
+            <div class="row">
+              <div>
+                <div style="font-size:14px;font-weight:800;color:var(--white)">${b.icon} ${b.name}</div>
+                <div class="small">${b.note || "No note"} · due day ${b.dueDay}</div>
+              </div>
+              <div class="right">
+                <div style="font-size:16px;font-weight:800;color:var(--white)" class="number">${fmt(b.amount)}</div>
+                <div class="small">${days <= 0 ? '<span class="danger-text">due ' + dueText + '</span>' : 'due in ' + dueText}</div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      document.getElementById("tab-bills").innerHTML = `
+        <div class="list">
+          <div class="card">
+            <div class="row">
+              <div>
+                <div class="tiny">Recurring fixed bills</div>
+                <div class="small">Countdown so nothing sneaks up on you</div>
+              </div>
+              <div class="tag">⏰ Due-date view</div>
+            </div>
+          </div>
+          ${html}
+          <div class="card row">
+            <span style="font-size:14px;font-weight:800;color:var(--white)">Total / month</span>
+            <span class="big number danger-text">${fmt(totalFixed())}</span>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderLog(){
+      const options = allAllocs().filter(a=>a.recommended>0).map(a=>`<option value="${a.id}">${a.icon} ${a.name}</option>`).join("");
+      document.getElementById("tab-log").innerHTML = `
+        <div class="card">
+          <div class="row">
+            <div>
+              <div class="tiny">Log a spend</div>
+              <div class="small">Add what you spent and see the impact right away</div>
+            </div>
+            <div class="tag">⚡ Quick add</div>
+          </div>
+          <div class="sp12"></div>
+          <div>
+            <div class="tiny" style="margin-bottom:6px">What?</div>
+            <input id="expName" class="input" placeholder="Chipotle, Uber, groceries..." />
+          </div>
+          <div class="sp12"></div>
+          <div>
+            <div class="tiny" style="margin-bottom:6px">How much?</div>
+            <input id="expAmount" class="input" type="number" step="0.01" placeholder="0.00" />
+          </div>
+          <div class="sp12"></div>
+          <div>
+            <div class="tiny" style="margin-bottom:6px">Category</div>
+            <select id="expAlloc" class="select">${options}</select>
+          </div>
+          <div class="sp12"></div>
+          <div id="logPreview"></div>
+          <button class="btn primary" style="width:100%" onclick="addExpense()">+ Add Expense</button>
+        </div>
+      `;
+      document.getElementById("expAmount").addEventListener("input", updateLogPreview);
+      document.getElementById("expAlloc").addEventListener("change", updateLogPreview);
+      updateLogPreview();
+    }
+
+    function updateLogPreview(){
+      const amount = parseFloat(document.getElementById("expAmount")?.value);
+      const allocId = document.getElementById("expAlloc")?.value;
+      const alloc = allAllocs().find(a=>a.id===allocId);
+      if(!alloc || Number.isNaN(amount)){
+        document.getElementById("logPreview").innerHTML = "";
+        return;
+      }
+      const current = spentByAlloc()[allocId] || 0;
+      const next = current + amount;
+      const over = next > alloc.recommended;
+      document.getElementById("logPreview").innerHTML = `
+        <div class="soft-card">
+          <span class="small">After this: </span>
+          <strong class="${over?'danger-text':'good-text'} number">${fmt(next)} / ${fmt(alloc.recommended)} ${over?'⚠️ over budget':'✓'}</strong>
+        </div>
+      `;
+    }
+
+    function addExpense(){
+      const name = document.getElementById("expName").value.trim();
+      const amount = parseFloat(document.getElementById("expAmount").value);
+      const allocId = document.getElementById("expAlloc").value;
+      if(!name || Number.isNaN(amount) || amount <= 0) return alert("Put a valid name and amount first.");
+      state.expenses.push({
+        id: Date.now(),
+        name,
+        amount,
+        allocId,
+        date: new Date().toLocaleDateString("en-US", { month:"short", day:"numeric" })
+      });
+      saveState();
+      state.tab = "history";
+      render();
+    }
+
+    function renderHistory(){
+      const all = [...PHASE1_ALLOCS, ...PHASE2_ALLOCS];
+      const total = spentThisMonth();
+      if(state.expenses.length === 0){
+        document.getElementById("tab-history").innerHTML = `
+          <div class="card center">
+            <div class="tiny">Expense history</div>
+            <div class="sp12"></div>
+            <div class="small">No expenses yet. Head to the Log tab and start tracking.</div>
+          </div>
+        `;
+        return;
+      }
+
+      document.getElementById("tab-history").innerHTML = `
+        <div class="list">
+          <div class="card row">
+            <div>
+              <div class="tiny">Expense history</div>
+              <div class="small">${state.expenses.length} entries logged</div>
+            </div>
+            <div class="tag">🧾 Total ${fmt(total)}</div>
+          </div>
+
+          ${[...state.expenses].reverse().map(e=>{
+            const alloc = all.find(a=>a.id===e.allocId) || { color:"var(--muted)", icon:"📝" };
+            return `
+              <div class="item">
+                <div class="row">
+                  <div>
+                    <div style="font-size:14px;font-weight:800;color:var(--white)">${alloc.icon} ${e.name}</div>
+                    <div class="small">${e.date} · ${e.allocId}</div>
+                  </div>
+                  <div class="row">
+                    <div style="font-size:16px;font-weight:800;color:${alloc.color}" class="number">-${fmt(e.amount)}</div>
+                    <button class="btn ghost" onclick="deleteExpense(${e.id})">×</button>
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      `;
+    }
+
+    function renderUnlockedGoals(){
+      const goals = state.unlockedGoals || [];
+      const projected = projectedGoalMoney();
+
+      document.getElementById("tab-unlocked").innerHTML = `
+        <div class="list">
+          <div class="card">
+            <div class="row">
+              <div>
+                <div class="tiny">Unlocked Goals</div>
+                <div class="small">Can you afford this without hurting yourself?</div>
+              </div>
+              <div class="tag">🚀 Decision helper</div>
+            </div>
+            <div class="sp12"></div>
+            <div class="grid2">
+              <div class="soft-card">
+                <div class="tiny">Projected goal money</div>
+                <div class="big number good-text">${fmt(projected)}</div>
+                <div class="small">Savings + apartment + rollover + leftover</div>
+              </div>
+              <div class="soft-card">
+                <div class="tiny">Unused fun money</div>
+                <div class="big number warn-text">${fmt(entertainmentUnused())}</div>
+                <div class="small">Can be rolled into goals</div>
+              </div>
+            </div>
+            <div class="sp12"></div>
+            <div class="grid2">
+              <button class="btn primary" onclick="addUnlockedGoal()">+ Add Future Goal</button>
+              <button class="btn warn" onclick="rolloverEntertainment()">Move unused fun money to rollover</button>
+            </div>
+          </div>
+
+          ${goals.map(g=>{
+            const info = affordability(g);
+            const months = monthsUntil(Number(g.cost||0));
+            let label = "Not safe yet", klass = "danger", pillStyle = 'background:rgba(255,93,108,.16);color:var(--red)';
+            if(info.level === "green"){ label = "Unlocked"; klass = "success"; pillStyle = 'background:rgba(47,209,123,.16);color:var(--green)'; }
+            else if(info.level === "yellow"){ label = "Close"; klass = "warn"; pillStyle = 'background:rgba(255,179,71,.16);color:var(--orange)'; }
+
+            return `
+              <div class="item ${klass} ${info.level==='green'?'pulse-green':''}">
+                <div class="row">
+                  <div>
+                    <div style="font-size:15px;font-weight:800;color:var(--white)">${g.name}</div>
+                    <div class="small">${g.note || "No note"} · Priority: ${g.priority || "Medium"}</div>
+                  </div>
+                  <div class="goal-status" style="${pillStyle}">${label}</div>
+                </div>
+                <div class="sp12"></div>
+                <div class="grid2">
+                  <div class="soft-card">
+                    <div class="tiny">Goal Cost</div>
+                    <div class="big number">${fmt(g.cost)}</div>
+                    <div class="small">What you want to afford safely</div>
+                  </div>
+                  <div class="soft-card">
+                    <div class="tiny">Safe money check</div>
+                    <div class="big number ${info.diff>=0?'good-text':info.level==='yellow'?'warn-text':'danger-text'}">${fmt(info.money)}</div>
+                    <div class="small">${info.diff>=0 ? 'You can cover it safely' : `Need ${fmt(Math.abs(info.diff))} more`}</div>
+                  </div>
+                </div>
+                <div class="sp12"></div>
+                <div class="help">
+                  ${info.diff >= 0
+                    ? `You can afford <strong>${g.name}</strong> without financially hurting yourself based on the money this app treats as available.`
+                    : `At your current pace, ${months === null ? 'there is no projection yet' : `about <strong>${months} month(s)</strong> to reach this safely`}.`}
+                </div>
+                <div class="sp12"></div>
+                <div class="row">
+                  <div class="tag">${g.useProtected ? 'Uses protected money' : 'Protected money stays protected'}</div>
+                  <div class="row">
+                    <button class="btn" onclick="editUnlockedGoal(${g.id})">Edit</button>
+                    <button class="btn ghost" onclick="deleteUnlockedGoal(${g.id})">Delete</button>
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      `;
+    }
+
+    function renderTools(){
+      document.getElementById("tab-tools").innerHTML = `
+        <div class="list">
+          <div class="card">
+            <div class="tiny">Tools</div>
+            <div class="small">Housekeeping and backup</div>
+            <div class="sp12"></div>
+            <div class="grid2">
+              <button class="btn warn" onclick="monthlyReset()">Monthly Reset</button>
+              <button class="btn" onclick="exportData()">Export Backup</button>
+              <button class="btn" onclick="importData()">Import Backup</button>
+              <button class="btn" onclick="loadDemo()">Load Demo Data</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="tiny">Fund trackers</div>
+            <div class="small">Extra pools outside the 3 main rings</div>
+            <div class="sp12"></div>
+            <div class="grid2">
+              <div>
+                <div class="tiny" style="margin-bottom:6px">Savings Fund</div>
+                <input id="savingsFundInput" class="input" type="number" step="0.01" value="${state.savingsFund}" />
+              </div>
+              <div>
+                <div class="tiny" style="margin-bottom:6px">Rollover Pool</div>
+                <input id="rolloverInput" class="input" type="number" step="0.01" value="${state.rolloverPool}" />
+              </div>
+            </div>
+            <div class="sp12"></div>
+            <button class="btn primary" onclick="saveExtraPools()">Save extra pools</button>
+          </div>
+
+          <div class="card">
+            <div class="tiny">Privacy</div>
+            <div class="sp8"></div>
+            <div class="help">This version stores data in your browser on this device. It is personal-use friendly, but anyone using this same browser/device could see the data.</div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderTabs(){
+      document.querySelectorAll("#tabs button").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.tab === state.tab);
+      });
+      ["dashboard","budget","bills","log","history","unlocked","tools"].forEach(tab => {
+        const el = document.getElementById("tab-" + tab);
+        const active = tab === state.tab;
+        el.classList.toggle("hide", !active);
+        if(active){
+          el.classList.remove("tab-pane");
+          void el.offsetWidth;
+          el.classList.add("tab-pane");
+        }
+      });
+      saveState(false);
+    }
+
+    function updateNumber(key,label){
+      const current = Number(state[key] || 0);
+      const raw = prompt(`Update ${label}:`, current);
+      if(raw === null) return;
+      const v = parseFloat(raw);
+      if(Number.isNaN(v) || v < 0) return alert("Please enter a valid number.");
+      state[key] = v;
+      saveState();
+      render();
+    }
+    function saveDashboardMoney(){
+      const checking = parseFloat(document.getElementById("checkingInputDash").value);
+      const nextPay = document.getElementById("nextPayInputDash").value;
+      if(!Number.isNaN(checking)) state.checkingBalance = checking;
+      state.nextPayday = nextPay;
+      saveState();
+      render();
+    }
+    function saveExtraPools(){
+      const s = parseFloat(document.getElementById("savingsFundInput").value);
+      const r = parseFloat(document.getElementById("rolloverInput").value);
+      state.savingsFund = Number.isNaN(s) ? state.savingsFund : s;
+      state.rolloverPool = Number.isNaN(r) ? state.rolloverPool : r;
+      saveState();
+      render();
+    }
+    function deleteExpense(id){
+      state.expenses = state.expenses.filter(e=>e.id!==id);
+      saveState();
+      render();
+    }
+    function rolloverEntertainment(){
+      const unused = entertainmentUnused();
+      if(unused <= 0) return alert("No unused entertainment money to roll over right now.");
+      state.rolloverPool = Number(state.rolloverPool || 0) + unused;
+      saveState(true);
+      showToast(`Rolled over ${fmt(unused)}`);
+      render();
+    }
+    function addUnlockedGoal(){
+      const name = prompt("Goal name:", "New Goal");
+      if(!name) return;
+      const cost = parseFloat(prompt("Goal cost:", "1000"));
+      if(Number.isNaN(cost) || cost <= 0) return alert("Enter a valid cost.");
+      const priority = prompt("Priority (Low / Medium / High):", "Medium") || "Medium";
+      const note = prompt("Optional note:", "") || "";
+      const useProtected = confirm("Allow this goal to count protected money too? Press Cancel to keep it stricter.");
+      state.unlockedGoals.push({ id: Date.now(), name, cost, priority, note, useProtected });
+      saveState();
+      render();
+    }
+    function editUnlockedGoal(id){
+      const g = state.unlockedGoals.find(x=>x.id===id);
+      if(!g) return;
+      const name = prompt("Edit goal name:", g.name);
+      if(!name) return;
+      const cost = parseFloat(prompt("Edit goal cost:", g.cost));
+      if(Number.isNaN(cost) || cost <= 0) return alert("Enter a valid cost.");
+      const priority = prompt("Edit priority:", g.priority || "Medium") || g.priority || "Medium";
+      const note = prompt("Edit note:", g.note || "") || "";
+      const useProtected = confirm("Allow this goal to count protected money too? Cancel keeps it strict.");
+      Object.assign(g, { name, cost, priority, note, useProtected });
+      saveState();
+      render();
+    }
+    function deleteUnlockedGoal(id){
+      if(!confirm("Delete this future goal?")) return;
+      state.unlockedGoals = state.unlockedGoals.filter(g=>g.id!==id);
+      saveState();
+      render();
+    }
+    function monthlyReset(){
+      const ok = confirm("Reset expense history for a new month?\n\nThis keeps your goals, paycheck, checking balance, and future goals.");
+      if(!ok) return;
+      state.expenses = [];
+      saveState();
+      render();
+    }
+    function exportData(){
+      const blob = new Blob([JSON.stringify(state, null, 2)], { type:"application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "michael-budget-v2-backup.json";
+      a.click();
+      URL.revokeObjectURL(a.href);
+      showToast("Backup exported");
+    }
+    function importData(){
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = ".json,application/json";
+      input.onchange = () => {
+        const file = input.files[0];
+        if(!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          try{
+            const parsed = JSON.parse(reader.result);
+            state = { ...clone(DEFAULT_STATE), ...parsed };
+            saveState();
+            render();
+          }catch{
+            alert("That backup file could not be imported.");
+          }
+        };
+        reader.readAsText(file);
+      };
+      input.click();
+    }
+    function loadDemo(){
+      if(!confirm("Load demo data? This will overwrite current data.")) return;
+      state = {
+        phase: 1,
+        tab: "dashboard",
+        paycheck: 1180,
+        checkingBalance: 1486.43,
+        nextPayday: new Date(Date.now() + 6*86400000).toISOString().slice(0,10),
+        expenses: [
+          { id: 1, name: "Aldi", amount: 72.44, allocId: "groceries", date: "Mar 7" },
+          { id: 2, name: "Shell", amount: 28.10, allocId: "gas", date: "Mar 8" },
+          { id: 3, name: "Chipotle", amount: 14.32, allocId: "entertainment", date: "Mar 8" }
+        ],
+        emergencyFund: 220,
+        apartmentFund: 600,
+        debtPaid: 640,
+        savingsFund: 180,
+        rolloverPool: 60,
+        unlockedGoals: clone(DEFAULT_UNLOCKED_GOALS)
+      };
+      saveState();
+      render();
+    }
+
+    document.querySelectorAll("#phaseSwitch button").forEach(btn => {
+      btn.onclick = () => {
+        state.phase = Number(btn.dataset.phase);
+        saveState();
+        render();
+      };
+    });
+    document.querySelectorAll("#tabs button").forEach(btn => {
+      btn.onclick = () => {
+        state.tab = btn.dataset.tab;
+        renderTabs();
+      };
+    });
+    document.getElementById("editPayBtn").onclick = () => {
+      document.getElementById("payEditRow").classList.remove("hide");
+      document.getElementById("payInput").value = state.paycheck;
+      document.getElementById("payInput").focus();
+    };
+    document.getElementById("cancelPayBtn").onclick = () => {
+      document.getElementById("payEditRow").classList.add("hide");
+    };
+    document.getElementById("savePayBtn").onclick = () => {
+      const v = parseFloat(document.getElementById("payInput").value);
+      if(Number.isNaN(v) || v <= 0) return alert("Put a valid paycheck amount.");
+      state.paycheck = v;
+      document.getElementById("payEditRow").classList.add("hide");
+      saveState();
+      render();
+    };
+
+    window.updateNumber = updateNumber;
+    window.saveDashboardMoney = saveDashboardMoney;
+    window.addExpense = addExpense;
+    window.deleteExpense = deleteExpense;
+    window.rolloverEntertainment = rolloverEntertainment;
+    window.addUnlockedGoal = addUnlockedGoal;
+    window.editUnlockedGoal = editUnlockedGoal;
+    window.deleteUnlockedGoal = deleteUnlockedGoal;
+    window.monthlyReset = monthlyReset;
+    window.exportData = exportData;
+    window.importData = importData;
+    window.loadDemo = loadDemo;
+    window.saveExtraPools = saveExtraPools;
+
+    render();
+  </script>
+</body>
+</html>

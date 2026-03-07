@@ -1,0 +1,34 @@
+Auth + Sync Upgrade Notes
+=========================
+
+What was added
+- Account-based login/register
+- Session auth with protected API routes
+- Private per-user data separation for settings, bills, expenses, and goals
+- Logout button in the app header
+- New login screen
+- Fast-login friendly fields for iPhone/iPad Safari + iCloud Keychain autofill
+
+Important limitation
+- True passkeys / WebAuthn / native Face ID sign-in are NOT fully implemented in this build.
+- However, Safari/iCloud Keychain can save and autofill the login with Face ID on Apple devices.
+
+Cross-device sync
+- This works when both devices use the same deployed app + same database + same account.
+
+Database changes
+- New users table
+- Added user_id to:
+  - settings
+  - expenses
+  - recurring_bills
+  - unlocked_goals
+
+Recommended next steps
+1. Run: npm run db:push
+2. Create your first account in the app
+3. Deploy the app/backend so iPhone and iPad hit the same server/database
+
+Migration note
+- user_id columns default to 1 to make upgrading from the older single-user version easier.
+- If your first registered account becomes id 1, old records should line up naturally.
