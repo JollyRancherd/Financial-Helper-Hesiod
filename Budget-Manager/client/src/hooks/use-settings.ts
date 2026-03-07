@@ -1,12 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, buildUrl, type UpdateSettingsRequest } from "@shared/routes";
 import { z } from "zod";
+import { apiFetch } from "@/lib/api-fetch";
 
 export function useSettings() {
   return useQuery({
     queryKey: [api.settings.get.path],
     queryFn: async () => {
-      const res = await fetch(api.settings.get.path, { credentials: "include" });
+      const res = await apiFetch(api.settings.get.path);
       if (!res.ok) throw new Error("Failed to fetch settings");
       const data = await res.json();
       return api.settings.get.responses[200].parse(data);
@@ -20,11 +21,10 @@ export function useUpdateSettings() {
     mutationFn: async (updates: UpdateSettingsRequest) => {
       // Validate partial payload before sending
       const validated = api.settings.update.input.parse(updates);
-      const res = await fetch(api.settings.update.path, {
+      const res = await apiFetch(api.settings.update.path, {
         method: api.settings.update.method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(validated),
-        credentials: "include",
       });
       if (!res.ok) {
         if (res.status === 400) {

@@ -2,7 +2,11 @@ import { useState } from "react";
 import { Loader2, LockKeyhole, UserRound, Fingerprint, ShieldCheck, TrendingUp } from "lucide-react";
 import { useLogin, useRegister } from "@/hooks/use-auth";
 
-export default function AuthPage() {
+interface AuthPageProps {
+  onNewUser?: (user: { username: string }) => void;
+}
+
+export default function AuthPage({ onNewUser }: AuthPageProps) {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -14,8 +18,14 @@ export default function AuthPage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const payload = { username, password };
-    if (mode === "login") await login.mutateAsync(payload);
-    else await register.mutateAsync(payload);
+    if (mode === "login") {
+      await login.mutateAsync(payload);
+    } else {
+      const result = await register.mutateAsync(payload);
+      if (result.isNew && onNewUser) {
+        onNewUser({ username: result.username });
+      }
+    }
   };
 
   return (

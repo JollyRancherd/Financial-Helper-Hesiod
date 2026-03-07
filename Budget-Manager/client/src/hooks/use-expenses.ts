@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/api-fetch";
 import { api, buildUrl, type CreateExpenseRequest } from "@shared/routes";
 import { z } from "zod";
 
@@ -6,7 +7,7 @@ export function useExpenses() {
   return useQuery({
     queryKey: [api.expenses.list.path],
     queryFn: async () => {
-      const res = await fetch(api.expenses.list.path, { credentials: "include" });
+      const res = await apiFetch(api.expenses.list.path);
       if (!res.ok) throw new Error("Failed to fetch expenses");
       return api.expenses.list.responses[200].parse(await res.json());
     },
@@ -18,11 +19,10 @@ export function useCreateExpense() {
   return useMutation({
     mutationFn: async (data: CreateExpenseRequest) => {
       const validated = api.expenses.create.input.parse(data);
-      const res = await fetch(api.expenses.create.path, {
+      const res = await apiFetch(api.expenses.create.path, {
         method: api.expenses.create.method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(validated),
-        credentials: "include",
       });
       if (!res.ok) {
         if (res.status === 400) {
@@ -44,7 +44,7 @@ export function useDeleteExpense() {
   return useMutation({
     mutationFn: async (id: number) => {
       const url = buildUrl(api.expenses.delete.path, { id });
-      const res = await fetch(url, { method: api.expenses.delete.method, credentials: "include" });
+      const res = await apiFetch(url, { method: api.expenses.delete.method });
       if (!res.ok && res.status !== 204) {
         throw new Error("Failed to delete expense");
       }
@@ -59,9 +59,8 @@ export function useResetExpenses() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => {
-      const res = await fetch(api.expenses.reset.path, { 
+      const res = await apiFetch(api.expenses.reset.path, { 
         method: api.expenses.reset.method, 
-        credentials: "include" 
       });
       if (!res.ok) throw new Error("Failed to reset expenses");
       return api.expenses.reset.responses[200].parse(await res.json());

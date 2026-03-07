@@ -1,13 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@shared/routes";
 import type { AuthCredentialsRequest } from "@shared/routes";
+import { apiFetch } from "@/lib/api-fetch";
 
 export function useAuth() {
   return useQuery({
     queryKey: [api.auth.me.path],
     retry: false,
     queryFn: async () => {
-      const res = await fetch(api.auth.me.path, { credentials: "include" });
+      const res = await apiFetch(api.auth.me.path);
       if (res.status === 401) return null;
       if (!res.ok) throw new Error("Failed to fetch auth state");
       return api.auth.me.responses[200].parse(await res.json());
@@ -30,10 +31,12 @@ export function useRegister() {
         const body = await res.json().catch(() => ({ message: "Failed to create account" }));
         throw new Error(body.message || "Failed to create account");
       }
-      return api.auth.register.responses[201].parse(await res.json());
+      const json = await res.json();
+      if (json.token) localStorage.setItem("budget_auth_token", json.token);
+      return { id: json.id as number, username: json.username as string, isNew: !!json.isNew };
     },
     onSuccess: (user) => {
-      queryClient.setQueryData([api.auth.me.path], user);
+      queryClient.setQueryData([api.auth.me.path], { id: user.id, username: user.username });
       queryClient.invalidateQueries({
         predicate: (query) => query.queryKey[0] !== api.auth.me.path,
       });
@@ -56,7 +59,9 @@ export function useLogin() {
         const body = await res.json().catch(() => ({ message: "Failed to log in" }));
         throw new Error(body.message || "Failed to log in");
       }
-      return api.auth.login.responses[200].parse(await res.json());
+      const json = await res.json();
+      if (json.token) localStorage.setItem("budget_auth_token", json.token);
+      return { id: json.id as number, username: json.username as string };
     },
     onSuccess: (user) => {
       queryClient.setQueryData([api.auth.me.path], user);
@@ -71,7 +76,8 @@ export function useLogout() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => {
-      const res = await fetch(api.auth.logout.path, { method: api.auth.logout.method, credentials: "include" });
+      const res = await apiFetch(api.auth.logout.path, { method: api.auth.logout.method });
+      localStorage.removeItem("budget_auth_token");
       if (!res.ok) throw new Error("Failed to log out");
       return api.auth.logout.responses[200].parse(await res.json());
     },

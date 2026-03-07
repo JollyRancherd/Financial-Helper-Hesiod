@@ -11,6 +11,18 @@ const MemoryStore = MemoryStoreFactory(session);
 
 const SCRYPT_KEYLEN = 64;
 
+const tokenStore = new Map<string, { id: number; username: string }>();
+
+export function createToken(user: { id: number; username: string }): string {
+  const token = crypto.randomBytes(32).toString("hex");
+  tokenStore.set(token, user);
+  return token;
+}
+
+export function revokeToken(token: string) {
+  tokenStore.delete(token);
+}
+
 function timingSafeEqualHex(a: string, b: string) {
   const aBuf = Buffer.from(a, "hex");
   const bBuf = Buffer.from(b, "hex");
@@ -62,6 +74,19 @@ export function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
+  app.use((req, _res, next) => {
+    if (!req.isAuthenticated()) {
+      const token = req.headers["x-auth-token"] as string | undefined;
+      if (token) {
+        const user = tokenStore.get(token);
+        if (user) {
+          req.user = user;
+        }
+      }
+    }
+    next();
+  });
+
   passport.use(new LocalStrategy(async (username, password, done) => {
     try {
       const user = await storage.getUserByUsername(username);
@@ -79,7 +104,7 @@ export function setupAuth(app: Express) {
 }
 
 export const requireAuth: RequestHandler = (req, res, next) => {
-  if (req.isAuthenticated()) return next();
+  if (req.isAuthenticated() || req.user) return next();
   return res.status(401).json({ message: "You need to log in first." });
 };
 

@@ -5,7 +5,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { authCredentialsSchema } from "@shared/schema";
 import { z } from "zod";
-import { registerUserAndSeed, requireAuth, toSafeUser } from "./auth";
+import { registerUserAndSeed, requireAuth, toSafeUser, createToken, revokeToken } from "./auth";
 
 function getUserId(req: Request) {
   return (req.user as Express.User | undefined)?.id;
@@ -16,7 +16,7 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   app.get(api.auth.me.path, (req, res) => {
-    if (!req.isAuthenticated() || !req.user) return res.status(401).json({ message: "Not logged in" });
+    if (!req.isAuthenticated() && !req.user) return res.status(401).json({ message: "Not logged in" });
     res.json(req.user);
   });
 
@@ -26,9 +26,12 @@ export async function registerRoutes(
       const existing = await storage.getUserByUsername(input.username);
       if (existing) return res.status(400).json({ message: "That username is already taken.", field: "username" });
       const user = await registerUserAndSeed(input);
+      const token = createToken(user);
       req.login(user, (err) => {
-        if (err) throw err;
-        return res.status(201).json(user);
+        if (err) {
+          return res.status(201).json({ ...user, token, isNew: true });
+        }
+        return res.status(201).json({ ...user, token, isNew: true });
       });
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -50,18 +53,23 @@ export async function registerRoutes(
     passport.authenticate("local", (err: unknown, user: Express.User | false, info?: { message?: string }) => {
       if (err) return next(err);
       if (!user) return res.status(401).json({ message: info?.message || "Invalid username or password" });
+      const token = createToken(user);
       req.login(user, (loginErr) => {
-        if (loginErr) return next(loginErr);
-        return res.json(user);
+        if (loginErr) {
+          return res.json({ ...user, token });
+        }
+        return res.json({ ...user, token });
       });
     })(req, res, next);
   });
 
   app.post(api.auth.logout.path, (req, res, next) => {
+    const token = req.headers["x-auth-token"] as string | undefined;
+    if (token) revokeToken(token);
     req.logout((err) => {
       if (err) return next(err);
       req.session.destroy((sessionErr) => {
-        if (sessionErr) return next(sessionErr);
+        if (sessionErr) console.error("session destroy error", sessionErr);
         res.clearCookie("connect.sid");
         return res.json({ message: "Logged out successfully" });
       });
