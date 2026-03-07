@@ -1,0 +1,9 @@
+{
+  "name": "budget-manager",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "cd Budget-Manager && npm install && npm run build",
+    "start": "cd Budget-Manager && npm run start"
+  }
+}

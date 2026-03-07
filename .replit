@@ -36,5 +36,5 @@ externalPort = 80
 
 [deployment]
 deploymentTarget = "autoscale"
-run = ["bash", "-c", "cd Budget-Manager && npm run start"]
-build = ["bash", "-c", "cd Budget-Manager && npm run build"]
+run = ["npm", "run", "start"]
+build = ["npm", "run", "build"]
