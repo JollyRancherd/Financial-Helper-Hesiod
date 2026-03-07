@@ -32,19 +32,7 @@ export default function Home() {
     return () => window.clearInterval(timer);
   }, []);
 
-  if (isLoading || !settings) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background text-primary">
-        <Loader2 className="w-12 h-12 animate-spin mb-4" />
-        <h1 className="font-display font-bold tracking-widest text-lg animate-pulse">LOADING BUDGET...</h1>
-      </div>
-    );
-  }
-
-  const phase = settings.phase || 1;
-  const debtRem = getDebtRemaining(settings);
-  const status = getStatusData(settings, bills);
-  const recommendedPhase = debtRem > 0 ? 1 : 2;
+  const phase = settings?.phase || 1;
   const currentPlan = useMemo(() => {
     if (phase === 1) {
       return {
@@ -59,6 +47,19 @@ export default function Home() {
       chip: "Next-level plan",
     };
   }, [phase]);
+
+  if (isLoading || !settings) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background text-primary">
+        <Loader2 className="w-12 h-12 animate-spin mb-4" />
+        <h1 className="font-display font-bold tracking-widest text-lg animate-pulse">LOADING BUDGET...</h1>
+      </div>
+    );
+  }
+
+  const debtRem = getDebtRemaining(settings);
+  const status = getStatusData(settings, bills);
+  const recommendedPhase = debtRem > 0 ? 1 : 2;
 
   const savePaycheck = () => {
     const v = parseFloat(paycheckInput);
