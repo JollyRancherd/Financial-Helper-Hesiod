@@ -34,7 +34,9 @@ export function useRegister() {
     },
     onSuccess: (user) => {
       queryClient.setQueryData([api.auth.me.path], user);
-      queryClient.invalidateQueries();
+      queryClient.invalidateQueries({
+        predicate: (query) => query.queryKey[0] !== api.auth.me.path,
+      });
     },
   });
 }
@@ -58,7 +60,9 @@ export function useLogin() {
     },
     onSuccess: (user) => {
       queryClient.setQueryData([api.auth.me.path], user);
-      queryClient.invalidateQueries();
+      queryClient.invalidateQueries({
+        predicate: (query) => query.queryKey[0] !== api.auth.me.path,
+      });
     },
   });
 }
