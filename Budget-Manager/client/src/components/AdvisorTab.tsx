@@ -3,7 +3,75 @@ import { useSettings, useUpdateSettings } from "@/hooks/use-settings";
 import { useBills } from "@/hooks/use-bills";
 import { formatMoney, getDebtRemaining, getLeftover, getTotalFixed, getUpcomingBills } from "@/lib/budget-utils";
 import { PHASE1_ALLOCS } from "@/lib/constants";
-import { Loader2, Sparkles, TrendingUp, ShieldCheck, TriangleAlert, CalendarClock } from "lucide-react";
+import { Loader2, Sparkles, TrendingUp, ShieldCheck, TriangleAlert, CalendarClock, Activity } from "lucide-react";
+
+function getHealthScore(
+  settings: { totalDebt: string; debtPaid: string; emergencyFund: string; emergencyGoal: string; paycheck: string; checkingBalance: string; phase: number },
+  bills: Array<{ active: boolean; paidMonth: string }>,
+  leftover: number
+) {
+  const now = new Date();
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+  const activeBills = bills.filter(b => b.active);
+  const paidBills = activeBills.filter(b => b.paidMonth === currentMonth).length;
+  const billScore = activeBills.length === 0 ? 25 : Math.round((paidBills / activeBills.length) * 25);
+
+  const emergencyFund = Number(settings.emergencyFund);
+  const emergencyGoal = Number(settings.emergencyGoal) || 1;
+  const emergencyScore = Math.round(Math.min(emergencyFund / emergencyGoal, 1) * 25);
+
+  const totalDebt = Number(settings.totalDebt);
+  const debtPaid = Number(settings.debtPaid);
+  let debtScore: number;
+  if (totalDebt <= 0) {
+    debtScore = 25;
+  } else {
+    const paidRatio = debtPaid / totalDebt;
+    debtScore = Math.round(Math.min(paidRatio, 1) * 25);
+  }
+
+  const paycheck = Number(settings.paycheck) || 1;
+  let budgetScore: number;
+  if (leftover >= paycheck * 0.1) {
+    budgetScore = 25;
+  } else if (leftover >= 0) {
+    budgetScore = 15;
+  } else {
+    budgetScore = Math.max(0, Math.round(15 + (leftover / paycheck) * 15));
+  }
+
+  const total = billScore + emergencyScore + debtScore + budgetScore;
+  return { total, billScore, emergencyScore, debtScore, budgetScore, billsTotal: activeBills.length, billsPaid: paidBills };
+}
+
+function gradeLabel(score: number) {
+  if (score >= 90) return { grade: "A", label: "Excellent", color: "text-success" };
+  if (score >= 75) return { grade: "B", label: "Good", color: "text-primary" };
+  if (score >= 60) return { grade: "C", label: "Fair", color: "text-warning" };
+  if (score >= 45) return { grade: "D", label: "Needs Work", color: "text-orange-400" };
+  return { grade: "F", label: "Critical", color: "text-destructive" };
+}
+
+function ScoreBar({ label, score, max = 25, color }: { label: string; score: number; max?: number; color: string }) {
+  const pct = Math.round((score / max) * 100);
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-1">
+        <span className="text-xs text-muted-foreground">{label}</span>
+        <span className={`text-xs font-bold ${color}`}>{score}/{max}</span>
+      </div>
+      <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all duration-700 ${
+            pct >= 80 ? "bg-success" : pct >= 60 ? "bg-primary" : pct >= 40 ? "bg-warning" : "bg-destructive"
+          }`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
 
 export function AdvisorTab() {
   const { data: settings, isLoading: settingsLoading } = useSettings();
@@ -24,6 +92,13 @@ export function AdvisorTab() {
     return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
   }, [debtRemaining, monthsToDebtFree]);
 
+  const healthScore = useMemo(() => {
+    if (!settings || !bills) return null;
+    return getHealthScore(settings as any, bills, leftover);
+  }, [settings, bills, leftover]);
+
+  const grade = healthScore ? gradeLabel(healthScore.total) : null;
+
   if (settingsLoading || billsLoading || !settings) {
     return <div className="p-8 flex justify-center"><Loader2 className="animate-spin text-primary" /></div>;
   }
@@ -42,6 +117,55 @@ export function AdvisorTab() {
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+
+      {healthScore && grade && (
+        <div className="glass-panel p-6">
+          <div className="flex items-center gap-3 mb-5">
+            <Activity className="w-5 h-5 text-primary" />
+            <div>
+              <h3 className="text-sm font-bold text-foreground">Financial Health Score</h3>
+              <p className="text-xs text-muted-foreground">Based on bills, debt, savings, and cash flow</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-6 mb-6">
+            <div className="flex-shrink-0 w-20 h-20 rounded-full border-4 border-white/10 flex flex-col items-center justify-center"
+              style={{ borderColor: healthScore.total >= 75 ? "var(--success)" : healthScore.total >= 50 ? "var(--warning)" : "var(--destructive)", borderWidth: 4 }}>
+              <span className={`text-3xl font-black ${grade.color}`}>{grade.grade}</span>
+            </div>
+            <div>
+              <div className="flex items-baseline gap-2">
+                <span className={`text-4xl font-black ${grade.color}`}>{healthScore.total}</span>
+                <span className="text-muted-foreground text-sm font-medium">/ 100</span>
+              </div>
+              <div className={`text-sm font-semibold mt-0.5 ${grade.color}`}>{grade.label}</div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <ScoreBar
+              label={`Bills paid this month (${healthScore.billsPaid}/${healthScore.billsTotal})`}
+              score={healthScore.billScore}
+              color={healthScore.billScore >= 20 ? "text-success" : healthScore.billScore >= 12 ? "text-warning" : "text-destructive"}
+            />
+            <ScoreBar
+              label="Emergency fund progress"
+              score={healthScore.emergencyScore}
+              color={healthScore.emergencyScore >= 20 ? "text-success" : healthScore.emergencyScore >= 12 ? "text-warning" : "text-destructive"}
+            />
+            <ScoreBar
+              label="Debt payoff progress"
+              score={healthScore.debtScore}
+              color={healthScore.debtScore >= 20 ? "text-success" : healthScore.debtScore >= 12 ? "text-warning" : "text-destructive"}
+            />
+            <ScoreBar
+              label="Monthly budget health"
+              score={healthScore.budgetScore}
+              color={healthScore.budgetScore >= 20 ? "text-success" : healthScore.budgetScore >= 12 ? "text-warning" : "text-destructive"}
+            />
+          </div>
+        </div>
+      )}
 
       {debtFreeDate && (
         <div className="glass-panel p-6 border-destructive/20 bg-destructive/5">

@@ -26,7 +26,7 @@ export async function registerRoutes(
       const existing = await storage.getUserByUsername(input.username);
       if (existing) return res.status(400).json({ message: "That username is already taken.", field: "username" });
       const user = await registerUserAndSeed(input);
-      const token = createToken(user);
+      const token = await createToken(user);
       req.login(user, (err) => {
         if (err) return res.status(201).json({ ...user, token, isNew: true });
         return res.status(201).json({ ...user, token, isNew: true });
@@ -41,10 +41,10 @@ export async function registerRoutes(
     try { authCredentialsSchema.parse(req.body); } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
     }
-    passport.authenticate("local", (err: unknown, user: Express.User | false, info?: { message?: string }) => {
+    passport.authenticate("local", async (err: unknown, user: Express.User | false, info?: { message?: string }) => {
       if (err) return next(err);
       if (!user) return res.status(401).json({ message: info?.message || "Invalid username or password" });
-      const token = createToken(user);
+      const token = await createToken(user);
       req.login(user, (loginErr) => {
         if (loginErr) return res.json({ ...user, token });
         return res.json({ ...user, token });
@@ -52,9 +52,9 @@ export async function registerRoutes(
     })(req, res, next);
   });
 
-  app.post(api.auth.logout.path, (req, res, next) => {
+  app.post(api.auth.logout.path, async (req, res, next) => {
     const token = req.headers["x-auth-token"] as string | undefined;
-    if (token) revokeToken(token);
+    if (token) await revokeToken(token);
     req.logout((err) => {
       if (err) return next(err);
       req.session.destroy((sessionErr) => {
@@ -87,7 +87,7 @@ export async function registerRoutes(
   app.delete(api.auth.deleteAccount.path, async (req, res) => {
     const userId = getUserId(req)!;
     const token = req.headers["x-auth-token"] as string | undefined;
-    if (token) revokeToken(token);
+    if (token) await revokeToken(token);
     req.logout((err) => {
       if (err) console.error("logout error on account delete", err);
     });

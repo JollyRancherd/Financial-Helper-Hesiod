@@ -24,7 +24,7 @@ A personal finance and budgeting web app designed for iPhone & iPad, built with 
 
 ## Auth System
 - Token-based auth (random token stored in localStorage, sent via X-Auth-Token header)
-- Tokens stored in-memory Map in server/auth.ts (reset on server restart)
+- Tokens persisted in the `users.token` DB column — survive server restarts and autoscale deployments
 - iCloud Keychain + Face ID via Safari's password autofill
 
 ## Database Tables
@@ -66,7 +66,13 @@ A personal finance and budgeting web app designed for iPhone & iPad, built with 
 - **Inline delete confirmations**: Bills, goals, and expenses all ask "Yes/No" before deleting
 - **Toast notifications**: All actions show slide-in toasts (5 second auto-dismiss) instead of browser alerts
 - **iOS-style bottom nav**: Fixed tab bar at the bottom with icon + label for each tab, badge dot on Bills when due
+- **Financial Health Score**: Advisor tab shows 0-100 score (A-F grade) across 4 dimensions: bills paid, emergency fund, debt progress, budget health
 - Safe-to-spend, daily spend, calendar, advisor insights, debt countdown
+
+## Deployment
+- Target: autoscale
+- Build: `cd Budget-Manager && npm run build` → dist/index.cjs
+- Run: `cd Budget-Manager && npm run start` → NODE_ENV=production node dist/index.cjs
 
 ## Workflow
 `cd Budget-Manager && npm run dev` — starts dev server on port 5000

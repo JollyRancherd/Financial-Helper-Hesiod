@@ -28,6 +28,8 @@ import { DEFAULT_FIXED_BILLS } from "@shared/default-bills";
 export interface IStorage {
   getUserById(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByToken(token: string): Promise<User | undefined>;
+  setUserToken(userId: number, token: string | null): Promise<void>;
   createUser(data: { username: string; passwordHash: string }): Promise<User>;
   updateUserPassword(userId: number, passwordHash: string): Promise<void>;
   deleteUser(userId: number): Promise<void>;
@@ -70,6 +72,15 @@ export class DatabaseStorage implements IStorage {
   async getUserByUsername(username: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.username, username)).limit(1);
     return user;
+  }
+
+  async getUserByToken(token: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.token, token)).limit(1);
+    return user;
+  }
+
+  async setUserToken(userId: number, token: string | null): Promise<void> {
+    await db.update(users).set({ token }).where(eq(users.id, userId));
   }
 
   async createUser(data: { username: string; passwordHash: string }): Promise<User> {

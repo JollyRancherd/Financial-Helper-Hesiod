@@ -11,16 +11,15 @@ const MemoryStore = MemoryStoreFactory(session);
 
 const SCRYPT_KEYLEN = 64;
 
-const tokenStore = new Map<string, { id: number; username: string }>();
-
-export function createToken(user: { id: number; username: string }): string {
+export async function createToken(user: { id: number; username: string }): Promise<string> {
   const token = crypto.randomBytes(32).toString("hex");
-  tokenStore.set(token, user);
+  await storage.setUserToken(user.id, token);
   return token;
 }
 
-export function revokeToken(token: string) {
-  tokenStore.delete(token);
+export async function revokeToken(token: string): Promise<void> {
+  const user = await storage.getUserByToken(token);
+  if (user) await storage.setUserToken(user.id, null);
 }
 
 function timingSafeEqualHex(a: string, b: string) {
@@ -74,13 +73,16 @@ export function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
-  app.use((req, _res, next) => {
+  app.use(async (req, _res, next) => {
     if (!req.isAuthenticated()) {
       const token = req.headers["x-auth-token"] as string | undefined;
       if (token) {
-        const user = tokenStore.get(token);
-        if (user) {
-          req.user = user;
+        try {
+          const user = await storage.getUserByToken(token);
+          if (user) {
+            req.user = toSafeUser(user);
+          }
+        } catch {
         }
       }
     }
