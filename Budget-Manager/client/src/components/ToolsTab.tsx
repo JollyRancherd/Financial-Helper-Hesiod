@@ -10,13 +10,15 @@ export function ToolsTab() {
 
   const [savingsInput, setSavingsInput] = useState(settings?.savingsFund?.toString() || "0");
   const [rolloverInput, setRolloverInput] = useState(settings?.rolloverPool?.toString() || "0");
+  const [bigGoalNameInput, setBigGoalNameInput] = useState((settings as any)?.bigGoalName || "Big Goal");
 
   const handleSavePools = () => {
     updateSettings.mutate({
       savingsFund: parseFloat(savingsInput || "0").toFixed(2),
-      rolloverPool: parseFloat(rolloverInput || "0").toFixed(2)
-    }, {
-      onSuccess: () => alert("Pools updated!")
+      rolloverPool: parseFloat(rolloverInput || "0").toFixed(2),
+      bigGoalName: bigGoalNameInput.trim() || "Big Goal",
+    } as any, {
+      onSuccess: () => alert("Settings updated!")
     });
   };
 
@@ -73,7 +75,7 @@ export function ToolsTab() {
             </div>
           </div>
           <div>
-            <label className="text-xs font-semibold text-muted-foreground block mb-2">Rollover Pool</label>
+            <label className="text-xs font-semibold text-muted-foreground block mb-2">Goals Pool (Rollover)</label>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-mono">$</span>
               <input 
@@ -83,10 +85,19 @@ export function ToolsTab() {
               />
             </div>
           </div>
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground block mb-2">Middle Ring Label <span className="text-muted-foreground/60 font-normal">(shown on dashboard)</span></label>
+            <input 
+              type="text"
+              value={bigGoalNameInput} onChange={e => setBigGoalNameInput(e.target.value)}
+              placeholder="e.g. New Car, Moving Out, Vacation..."
+              className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm focus:border-primary outline-none" 
+            />
+          </div>
         </div>
         
         <button onClick={handleSavePools} className="px-6 py-3 bg-primary text-primary-foreground font-semibold rounded-xl hover:bg-primary/90 transition-colors flex items-center gap-2 shadow-lg shadow-primary/20">
-          <Save className="w-4 h-4" /> Save extra pools
+          <Save className="w-4 h-4" /> Save settings
         </button>
       </div>
 
