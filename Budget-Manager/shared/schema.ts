@@ -36,7 +36,8 @@ export const expenses = pgTable("expenses", {
   name: text("name").notNull(),
   amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
   allocId: text("alloc_id").notNull(),
-  date: text("date").notNull()
+  date: text("date").notNull(),
+  note: text("note"),
 });
 
 export const recurringBills = pgTable("recurring_bills", {
@@ -48,6 +49,7 @@ export const recurringBills = pgTable("recurring_bills", {
   note: text("note").notNull().default(""),
   dueDay: integer("due_day").notNull(),
   active: boolean("active").notNull().default(true),
+  autopay: boolean("autopay").notNull().default(false),
   paidMonth: text("paid_month").notNull().default(""),
 });
 

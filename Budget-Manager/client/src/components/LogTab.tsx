@@ -16,6 +16,7 @@ export function LogTab({ onComplete }: { onComplete: () => void }) {
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [allocId, setAllocId] = useState("");
+  const [note, setNote] = useState("");
   const [saveAsTemplate, setSaveAsTemplate] = useState(false);
 
   const allocs = useMemo(() => {
@@ -38,7 +39,8 @@ export function LogTab({ onComplete }: { onComplete: () => void }) {
         name: name.trim(),
         amount: numAmount.toFixed(2),
         allocId,
-        date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })
+        date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+        note: note.trim() || undefined,
       },
       {
         onSuccess: () => {
@@ -53,6 +55,7 @@ export function LogTab({ onComplete }: { onComplete: () => void }) {
           }
           setName("");
           setAmount("");
+          setNote("");
           setSaveAsTemplate(false);
           onComplete();
         }
@@ -153,6 +156,17 @@ export function LogTab({ onComplete }: { onComplete: () => void }) {
                 <option key={a.id} value={a.id}>{a.icon} {a.name}</option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label className="text-xs text-muted-foreground block mb-2 font-medium">Note <span className="opacity-50">(optional)</span></label>
+            <input
+              type="text"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              className="w-full bg-background/50 border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:text-muted/50"
+              placeholder="e.g. lunch with coworkers, Amazon order..."
+            />
           </div>
 
           {selectedAlloc && parseFloat(amount) > 0 && (

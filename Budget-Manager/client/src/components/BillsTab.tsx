@@ -6,7 +6,7 @@ import { Loader2, Pencil, Save, Trash2, Plus, X, CalendarDays, CheckCircle2, Cir
 
 const currentMonthKey = new Date().toISOString().slice(0, 7);
 
-const emptyForm = { name: "", amount: "", icon: "💸", note: "", dueDay: "1", active: true };
+const emptyForm = { name: "", amount: "", icon: "💸", note: "", dueDay: "1", active: true, autopay: false };
 
 export function BillsTab() {
   const { data: bills, isLoading } = useBills();
@@ -28,7 +28,7 @@ export function BillsTab() {
 
   const startEdit = (bill: NonNullable<typeof bills>[number]) => {
     setEditingId(bill.id);
-    setDrafts(prev => ({ ...prev, [bill.id]: { name: bill.name, amount: String(bill.amount), icon: bill.icon, note: bill.note, dueDay: String(bill.dueDay), active: bill.active } }));
+    setDrafts(prev => ({ ...prev, [bill.id]: { name: bill.name, amount: String(bill.amount), icon: bill.icon, note: bill.note, dueDay: String(bill.dueDay), active: bill.active, autopay: (bill as any).autopay ?? false } }));
   };
 
   const saveEdit = (id: number) => {
@@ -43,6 +43,7 @@ export function BillsTab() {
         note: draft.note,
         dueDay: Number(draft.dueDay),
         active: draft.active,
+        autopay: draft.autopay,
       }
     }, {
       onSuccess: () => {
@@ -60,6 +61,7 @@ export function BillsTab() {
       note: newBill.note,
       dueDay: Number(newBill.dueDay),
       active: newBill.active,
+      autopay: newBill.autopay,
     }, {
       onSuccess: () => {
         setAdding(false);
@@ -111,6 +113,10 @@ export function BillsTab() {
             <label className="flex items-center gap-2 text-sm text-muted-foreground px-1 cursor-pointer">
               <input type="checkbox" checked={newBill.active} onChange={e => setNewBill(v => ({ ...v, active: e.target.checked }))} className="accent-primary w-4 h-4" />
               Active
+            </label>
+            <label className="flex items-center gap-2 text-sm text-muted-foreground px-1 cursor-pointer">
+              <input type="checkbox" checked={newBill.autopay} onChange={e => setNewBill(v => ({ ...v, autopay: e.target.checked }))} className="accent-primary w-4 h-4" />
+              Autopay
             </label>
           </div>
           <input className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm" placeholder="Optional note" value={newBill.note} onChange={e => setNewBill(v => ({ ...v, note: e.target.value }))} />
@@ -168,6 +174,10 @@ export function BillsTab() {
                         <input type="checkbox" checked={draft?.active ?? true} onChange={e => setDrafts(prev => ({ ...prev, [bill.id]: { ...prev[bill.id], active: e.target.checked } }))} className="accent-primary w-4 h-4" />
                         Active
                       </label>
+                      <label className="flex items-center gap-2 text-sm text-muted-foreground px-1 cursor-pointer">
+                        <input type="checkbox" checked={draft?.autopay ?? false} onChange={e => setDrafts(prev => ({ ...prev, [bill.id]: { ...prev[bill.id], autopay: e.target.checked } }))} className="accent-primary w-4 h-4" />
+                        Autopay
+                      </label>
                     </div>
                     <input className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm" placeholder="Optional note" value={draft?.note || ""} onChange={e => setDrafts(prev => ({ ...prev, [bill.id]: { ...prev[bill.id], note: e.target.value } }))} />
                     <div className="flex gap-2">
@@ -192,7 +202,10 @@ export function BillsTab() {
                           <span>{bill.icon}</span>
                           <span className="truncate">{bill.name}</span>
                         </div>
-                        <div className="text-xs text-muted-foreground mt-0.5 truncate">{bill.note || "No note"} · due day {bill.dueDay}{bill.active === false ? ' · paused' : ''}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5 flex-wrap">
+                          <span className="truncate">{bill.note || "No note"} · due day {bill.dueDay}{bill.active === false ? ' · paused' : ''}</span>
+                          {(bill as any).autopay && <span className="px-1.5 py-0.5 bg-primary/15 text-primary rounded text-[10px] font-semibold shrink-0">autopay</span>}
+                        </div>
                       </div>
                     </div>
                     <div className="text-right shrink-0">

@@ -192,6 +192,9 @@ export function HistoryTab() {
                             <div className="text-xs text-muted-foreground mt-1">
                               {e.date} · <span className="uppercase tracking-wider opacity-70 text-[10px]">{e.allocId}</span>
                             </div>
+                            {(e as any).note && (
+                              <div className="text-xs text-muted-foreground/70 italic mt-0.5">{(e as any).note}</div>
+                            )}
                           </div>
                           <div className="flex items-center gap-3">
                             <div className="text-base font-bold font-mono" style={{ color: alloc.color }}>
@@ -226,6 +229,23 @@ export function HistoryTab() {
             </div>
           ) : (
             <div className="space-y-4">
+              {sortedSnapshots.length >= 2 && (
+                <div className="glass-panel p-6">
+                  <h3 className="text-sm font-bold text-foreground mb-1">Spending trend</h3>
+                  <p className="text-xs text-muted-foreground mb-4">Total spent per cycle over time</p>
+                  <ResponsiveContainer width="100%" height={160}>
+                    <BarChart data={[...sortedSnapshots].reverse().map(s => ({
+                      name: new Date(s.month + "-01T12:00:00").toLocaleDateString("en-US", { month: "short" }),
+                      amount: Number(s.totalSpent)
+                    }))} margin={{ top: 0, right: 8, left: -10, bottom: 0 }}>
+                      <XAxis dataKey="name" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={v => `$${v}`} />
+                      <Tooltip formatter={(v: number) => [formatMoney(v), "Spent"]} contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: "12px", fontSize: "12px" }} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
+                      <Bar dataKey="amount" radius={[6, 6, 0, 0]} fill="hsl(var(--primary))" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
               {sortedSnapshots.map(snap => {
                 const breakdown: Record<string, number> = JSON.parse(snap.breakdown || "{}");
                 const breakdownEntries = Object.entries(breakdown).sort((a, b) => b[1] - a[1]);

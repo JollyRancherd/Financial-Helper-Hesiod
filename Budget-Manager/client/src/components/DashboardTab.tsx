@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from "react";
-import { formatMoney, getSafeToSpend, getDailySafeSpend, calcDaysUntil, getEntertainmentUnused, getMonthlyGoalPace, getReservedMoney, getSpentThisMonth, getDebtRemaining } from "@/lib/budget-utils";
+import { formatMoney, getSafeToSpend, getDailySafeSpend, calcDaysUntil, getEntertainmentUnused, getMonthlyGoalPace, getReservedMoney, getSpentThisMonth, getDebtRemaining, getAllocs, getSpentByAlloc } from "@/lib/budget-utils";
 import { useSettings, useUpdateSettings } from "@/hooks/use-settings";
-import { useExpenses } from "@/hooks/use-expenses";
+import { useExpenses, useCreateExpense } from "@/hooks/use-expenses";
 import { useBills } from "@/hooks/use-bills";
-import { Loader2, TriangleAlert, X, Wallet, TrendingUp, TrendingDown } from "lucide-react";
+import { Loader2, TriangleAlert, X, Wallet, TrendingUp, TrendingDown, Plus, BellRing, AlertCircle } from "lucide-react";
 
 const currentMonthKey = new Date().toISOString().slice(0, 7);
 
@@ -13,10 +13,17 @@ export function DashboardTab() {
   const { data: bills, isLoading: loadingBills } = useBills();
   const updateSettings = useUpdateSettings();
 
+  const createExpense = useCreateExpense();
   const [checkingInput, setCheckingInput] = useState("");
   const [paydayInput, setPaydayInput] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [dismissedBanner, setDismissedBanner] = useState(false);
+  const [dismissedWarnings, setDismissedWarnings] = useState(false);
+  const [dismissedReminders, setDismissedReminders] = useState(false);
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [qaName, setQaName] = useState("");
+  const [qaAmount, setQaAmount] = useState("");
+  const [qaAllocId, setQaAllocId] = useState("");
 
   const overdueBills = useMemo(() => {
     if (!bills) return [];
@@ -61,13 +68,41 @@ export function DashboardTab() {
     return { assets, debt, total: assets - debt };
   }, [settings]);
 
+  const allocs = useMemo(() => getAllocs(settings?.phase || 1), [settings?.phase]);
+
+  const qaAllocIdEffective = qaAllocId || allocs.filter(a => a.recommended > 0)[0]?.id || "";
+
+  const budgetWarnings = useMemo(() => {
+    if (!settings || !expenses) return [];
+    const spent = getSpentByAlloc(expenses);
+    return allocs.filter(a => a.recommended > 0 && (spent[a.id] || 0) > a.recommended).map(a => ({
+      name: a.name, icon: a.icon, spent: spent[a.id] || 0, budget: a.recommended, over: (spent[a.id] || 0) - a.recommended,
+    }));
+  }, [settings, expenses, allocs]);
+
+  const d = calcDaysUntil(settings?.nextPayday);
+
+  const cycleEndReminders = useMemo(() => {
+    if (!settings || !expenses || d === null || d > 5) return [];
+    const spent = getSpentByAlloc(expenses);
+    const reminders: { id: string; name: string; icon: string; needed: number }[] = [];
+    allocs.forEach(a => {
+      if (a.recommended > 0 && (a.id === "debt" || a.id === "savings" || a.id === "apartment")) {
+        const spentAmt = spent[a.id] || 0;
+        if (spentAmt < a.recommended * 0.5) {
+          reminders.push({ id: a.id, name: a.name, icon: a.icon, needed: a.recommended - spentAmt });
+        }
+      }
+    });
+    return reminders;
+  }, [settings, expenses, allocs, d]);
+
   if (loadingSettings || loadingExpenses || loadingBills) {
     return <div className="p-8 flex justify-center"><Loader2 className="animate-spin text-primary" /></div>;
   }
 
   const safe = getSafeToSpend(settings, bills);
   const dailySafe = getDailySafeSpend(settings, bills);
-  const d = calcDaysUntil(settings?.nextPayday);
   const rollover = getEntertainmentUnused(settings, expenses || []) + Number(settings?.rolloverPool || 0);
   const pace = getMonthlyGoalPace(settings, expenses || [], bills);
 
@@ -118,6 +153,49 @@ export function DashboardTab() {
           <button onClick={() => setDismissedBanner(true)} className="text-muted-foreground hover:text-foreground shrink-0">
             <X className="w-4 h-4" />
           </button>
+        </div>
+      )}
+
+      {cycleEndReminders.length > 0 && !dismissedReminders && (
+        <div className="glass-panel p-4 border-warning/30 bg-warning/5 animate-in fade-in duration-300">
+          <div className="flex items-start gap-3">
+            <BellRing className="w-5 h-5 text-warning shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <div className="text-sm font-bold text-warning mb-1">Payday in {d} day{d !== 1 ? "s" : ""} — allocations not yet logged</div>
+              <p className="text-xs text-muted-foreground mb-2">You haven't logged spending for these important categories this cycle:</p>
+              <div className="space-y-1">
+                {cycleEndReminders.map(r => (
+                  <div key={r.id} className="flex items-center justify-between text-xs text-foreground">
+                    <span className="flex items-center gap-1.5"><span>{r.icon}</span> {r.name}</span>
+                    <span className="font-mono font-semibold text-warning">{formatMoney(r.needed)} recommended</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <button onClick={() => setDismissedReminders(true)} className="text-muted-foreground hover:text-foreground shrink-0"><X className="w-4 h-4" /></button>
+          </div>
+        </div>
+      )}
+
+      {budgetWarnings.length > 0 && !dismissedWarnings && (
+        <div className="glass-panel p-4 border-destructive/30 bg-destructive/5 animate-in fade-in duration-300">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <div className="text-sm font-bold text-destructive mb-2">Over budget in {budgetWarnings.length} categor{budgetWarnings.length !== 1 ? "ies" : "y"}</div>
+              <div className="space-y-1">
+                {budgetWarnings.map(w => (
+                  <div key={w.name} className="flex items-center justify-between text-xs text-foreground">
+                    <span className="flex items-center gap-1.5"><span>{w.icon}</span> {w.name}</span>
+                    <span className="font-mono font-semibold text-destructive">
+                      {formatMoney(w.spent)} / {formatMoney(w.budget)} (+{formatMoney(w.over)})
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <button onClick={() => setDismissedWarnings(true)} className="text-muted-foreground hover:text-foreground shrink-0"><X className="w-4 h-4" /></button>
+          </div>
         </div>
       )}
 
@@ -281,6 +359,70 @@ export function DashboardTab() {
             This uses your leftover, unused fun money, and a small cushion.
           </p>
         </div>
+      </div>
+
+      <div className="glass-panel p-5">
+        <button
+          onClick={() => setShowQuickAdd(v => !v)}
+          className="w-full flex items-center justify-between text-sm font-semibold text-foreground"
+        >
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center">
+              <Plus className="w-4 h-4 text-primary-foreground" />
+            </div>
+            Quick log an expense
+          </div>
+          <span className="text-xs text-muted-foreground">{showQuickAdd ? "Close" : "Tap to open"}</span>
+        </button>
+        {showQuickAdd && (
+          <form
+            className="mt-4 space-y-3"
+            onSubmit={e => {
+              e.preventDefault();
+              const num = parseFloat(qaAmount);
+              if (!qaName.trim() || isNaN(num) || num <= 0) return;
+              createExpense.mutate({
+                name: qaName.trim(),
+                amount: num.toFixed(2),
+                allocId: qaAllocIdEffective,
+                date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+              }, {
+                onSuccess: () => { setQaName(""); setQaAmount(""); setShowQuickAdd(false); }
+              });
+            }}
+          >
+            <input
+              type="text" value={qaName} onChange={e => setQaName(e.target.value)} required
+              placeholder="What did you spend on?"
+              className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary transition-all"
+            />
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-mono text-sm">$</span>
+                <input
+                  type="number" step="0.01" value={qaAmount} onChange={e => setQaAmount(e.target.value)} required
+                  placeholder="0.00"
+                  className="w-full bg-background border border-border rounded-xl pl-7 pr-3 py-2.5 text-sm font-mono focus:outline-none focus:border-primary transition-all"
+                />
+              </div>
+              <select
+                value={qaAllocIdEffective} onChange={e => setQaAllocId(e.target.value)}
+                className="flex-1 bg-background border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-primary transition-all appearance-none"
+              >
+                {allocs.filter(a => a.recommended > 0).map(a => (
+                  <option key={a.id} value={a.id}>{a.icon} {a.name}</option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="submit" disabled={createExpense.isPending}
+              className="w-full py-2.5 bg-primary text-primary-foreground font-semibold rounded-xl text-sm flex items-center justify-center gap-2"
+            >
+              {createExpense.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+              {createExpense.isPending ? "Logging..." : "Log Expense"}
+            </button>
+          </form>
+        )}
       </div>
 
       <div className="glass-panel p-6">

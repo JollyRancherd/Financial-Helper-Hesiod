@@ -156,6 +156,8 @@ export class DatabaseStorage implements IStorage {
     }
     await db.delete(expenses).where(eq(expenses.userId, userId));
     await db.update(recurringBills).set({ paidMonth: "" }).where(eq(recurringBills.userId, userId));
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    await db.update(recurringBills).set({ paidMonth: currentMonth }).where(and(eq(recurringBills.userId, userId), eq(recurringBills.autopay, true)));
   }
 
   async getBills(userId: number): Promise<RecurringBill[]> {
