@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useSettings, useUpdateSettings } from "@/hooks/use-settings";
 import { useBills } from "@/hooks/use-bills";
-import { getDebtRemaining, formatMoney, getStatusData } from "@/lib/budget-utils";
+import { getDebtRemaining, formatMoney, getStatusData, nextDueDays } from "@/lib/budget-utils";
 import { TOTAL_DEBT, EMERGENCY_GOAL, APARTMENT_GOAL } from "@/lib/constants";
 import { ProgressRing } from "@/components/ProgressRing";
 import { DashboardTab } from "@/components/DashboardTab";
@@ -13,8 +13,10 @@ import { LogTab } from "@/components/LogTab";
 import { HistoryTab } from "@/components/HistoryTab";
 import { GoalsTab } from "@/components/GoalsTab";
 import { ToolsTab } from "@/components/ToolsTab";
-import { Loader2, DollarSign, PieChart, Calendar, PenTool, List, Target, Wrench, Edit2, Check, Clock3, Sparkles, LogOut } from "lucide-react";
+import { Loader2, LayoutDashboard, PieChart, Calendar, PenLine, Receipt, History, Target, Wrench, Edit2, Check, Clock3, Sparkles, LogOut } from "lucide-react";
 import { useAuth, useLogout } from "@/hooks/use-auth";
+
+const currentMonthKey = new Date().toISOString().slice(0, 7);
 
 export default function Home() {
   const { data: settings, isLoading } = useSettings();
@@ -48,6 +50,14 @@ export default function Home() {
     };
   }, [phase]);
 
+  const billsDueSoon = useMemo(() => {
+    return (bills || []).some(
+      b => b.active !== false &&
+        nextDueDays(b.dueDay) <= 3 &&
+        (b as any).paidMonth !== currentMonthKey
+    );
+  }, [bills]);
+
   if (isLoading || !settings) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background text-primary">
@@ -70,19 +80,19 @@ export default function Home() {
   };
 
   const tabs = [
-    { id: "dashboard", label: "Dashboard", icon: DollarSign },
-    { id: "advisor", label: "Advisor", icon: Sparkles },
-    { id: "budget", label: "Budget", icon: PieChart },
-    { id: "calendar", label: "Calendar", icon: Calendar },
-    { id: "bills", label: "Bills", icon: List },
-    { id: "log", label: "Log Spend", icon: PenTool },
-    { id: "history", label: "History", icon: List },
-    { id: "unlocked", label: "Goals", icon: Target },
-    { id: "tools", label: "Tools", icon: Wrench },
+    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, badge: false },
+    { id: "advisor", label: "Advisor", icon: Sparkles, badge: false },
+    { id: "budget", label: "Budget", icon: PieChart, badge: false },
+    { id: "calendar", label: "Calendar", icon: Calendar, badge: false },
+    { id: "bills", label: "Bills", icon: Receipt, badge: billsDueSoon },
+    { id: "log", label: "Log", icon: PenLine, badge: false },
+    { id: "history", label: "History", icon: History, badge: false },
+    { id: "unlocked", label: "Goals", icon: Target, badge: false },
+    { id: "tools", label: "Tools", icon: Wrench, badge: false },
   ];
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 pb-32">
+    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 pb-28">
       <header className="mb-8 space-y-6">
         <div className="flex justify-between items-center glass-panel p-2 pl-6 gap-4 flex-wrap">
           <div>
@@ -188,29 +198,6 @@ export default function Home() {
         </div>
       </header>
 
-      <nav className="mb-8 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 hide-scrollbar">
-        <div className="flex gap-2 min-w-max">
-          {tabs.map(tab => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`px-5 py-2.5 rounded-xl font-semibold text-sm flex items-center gap-2 transition-all duration-300 ${
-                  isActive
-                    ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25 border border-primary/20'
-                    : 'glass-panel-soft text-muted-foreground hover:text-foreground hover:bg-white/10'
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-      </nav>
-
       <main className="min-h-[500px]">
         {activeTab === "dashboard" && <DashboardTab />}
         {activeTab === "advisor" && <AdvisorTab />}
@@ -222,6 +209,40 @@ export default function Home() {
         {activeTab === "unlocked" && <GoalsTab />}
         {activeTab === "tools" && <ToolsTab />}
       </main>
+
+      <nav className="fixed bottom-0 left-0 right-0 z-50">
+        <div className="max-w-3xl mx-auto">
+          <div className="bg-background/85 backdrop-blur-xl border-t border-white/10 shadow-[0_-8px_32px_rgba(0,0,0,0.35)]">
+            <div className="overflow-x-auto hide-scrollbar">
+              <div className="flex px-2 py-2 gap-0.5 min-w-max">
+                {tabs.map(tab => {
+                  const Icon = tab.icon;
+                  const isActive = activeTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`relative flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl transition-all duration-200 min-w-[58px] ${
+                        isActive
+                          ? 'bg-primary/15 text-primary'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
+                      }`}
+                    >
+                      {tab.badge && (
+                        <span className="absolute top-1.5 right-2 w-2 h-2 rounded-full bg-destructive shadow-[0_0_6px_rgba(255,80,80,0.8)]" />
+                      )}
+                      <Icon className={`w-[18px] h-[18px] transition-all duration-200 ${isActive ? 'scale-110' : ''}`} />
+                      <span className={`text-[9px] font-bold leading-none tracking-wide ${isActive ? 'text-primary' : ''}`}>
+                        {tab.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      </nav>
     </div>
   );
 }

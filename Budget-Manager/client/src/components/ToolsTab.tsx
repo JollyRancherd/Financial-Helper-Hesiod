@@ -1,11 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useSettings, useUpdateSettings } from "@/hooks/use-settings";
 import { useExpenses, useResetExpenses } from "@/hooks/use-expenses";
 import { useBills } from "@/hooks/use-bills";
 import { getLeftover, getEntertainmentUnused, formatMoney } from "@/lib/budget-utils";
 import { apiFetch } from "@/lib/api-fetch";
 import { api } from "@shared/routes";
-import { RefreshCcw, Save, ShieldAlert, Banknote, KeyRound, UserX } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { RefreshCcw, Save, ShieldAlert, Banknote, KeyRound, UserX, AlertTriangle } from "lucide-react";
 
 export function ToolsTab() {
   const { data: settings } = useSettings();
@@ -13,10 +14,19 @@ export function ToolsTab() {
   const { data: expenses } = useExpenses();
   const updateSettings = useUpdateSettings();
   const resetExpenses = useResetExpenses();
+  const { toast } = useToast();
 
-  const [savingsInput, setSavingsInput] = useState(settings?.savingsFund?.toString() || "0");
-  const [rolloverInput, setRolloverInput] = useState(settings?.rolloverPool?.toString() || "0");
-  const [bigGoalNameInput, setBigGoalNameInput] = useState((settings as any)?.bigGoalName || "Big Goal");
+  const [savingsInput, setSavingsInput] = useState("0");
+  const [rolloverInput, setRolloverInput] = useState("0");
+  const [bigGoalNameInput, setBigGoalNameInput] = useState("Big Goal");
+
+  useEffect(() => {
+    if (settings) {
+      setSavingsInput(settings.savingsFund?.toString() || "0");
+      setRolloverInput(settings.rolloverPool?.toString() || "0");
+      setBigGoalNameInput((settings as any).bigGoalName || "Big Goal");
+    }
+  }, [settings]);
 
   const [showPaydayFlow, setShowPaydayFlow] = useState(false);
   const [newBalance, setNewBalance] = useState("");
@@ -33,13 +43,17 @@ export function ToolsTab() {
 
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [showDeleteSection, setShowDeleteSection] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const currentLeftover = getLeftover(settings, bills);
   const unusedFun = getEntertainmentUnused(settings, expenses || []);
   const sweepAmount = Math.max(0, currentLeftover) + unusedFun;
 
   const handlePaydayConfirm = async () => {
-    if (!newBalance && !newPayday) return alert("Enter at least a new balance or payday date.");
+    if (!newBalance && !newPayday) {
+      toast({ title: "Missing info", description: "Enter at least a new balance or payday date.", variant: "destructive" });
+      return;
+    }
     const updates: any = {};
     if (newBalance) updates.checkingBalance = parseFloat(newBalance).toFixed(2);
     if (newPayday) updates.nextPayday = newPayday;
@@ -51,6 +65,7 @@ export function ToolsTab() {
     setShowPaydayFlow(false);
     setNewBalance("");
     setNewPayday("");
+    toast({ title: "New paycheck recorded", description: "Balance updated and month reset." });
   };
 
   const handleSavePools = () => {
@@ -58,13 +73,18 @@ export function ToolsTab() {
       savingsFund: parseFloat(savingsInput || "0").toFixed(2),
       rolloverPool: parseFloat(rolloverInput || "0").toFixed(2),
       bigGoalName: bigGoalNameInput.trim() || "Big Goal",
-    } as any, { onSuccess: () => alert("Settings updated!") });
+    } as any, {
+      onSuccess: () => toast({ title: "Settings saved", description: "Your fund settings have been updated." })
+    });
   };
 
   const handleReset = () => {
-    if (confirm("Reset expense history for a new month?\n\nThis keeps your goals, paycheck, checking balance, and future goals.")) {
-      resetExpenses.mutate(undefined, { onSuccess: () => alert("Monthly reset complete!") });
-    }
+    resetExpenses.mutate(undefined, {
+      onSuccess: () => {
+        setShowResetConfirm(false);
+        toast({ title: "Month reset complete", description: "Your expense log has been cleared for the new month." });
+      }
+    });
   };
 
   const handleChangePassword = async (e: React.FormEvent) => {
@@ -83,7 +103,7 @@ export function ToolsTab() {
       if (!res.ok) return setPwError(data.message || "Failed to change password.");
       setShowChangePassword(false);
       setOldPassword(""); setNewPassword(""); setConfirmPassword("");
-      alert("Password changed successfully!");
+      toast({ title: "Password changed", description: "Your password has been updated successfully." });
     } catch {
       setPwError("Something went wrong. Try again.");
     } finally {
@@ -92,14 +112,13 @@ export function ToolsTab() {
   };
 
   const handleDeleteAccount = async () => {
-    if (deleteConfirm !== "DELETE") return alert('Type DELETE to confirm.');
-    if (!confirm("This will permanently delete your account and all data. There is no undo.")) return;
+    if (deleteConfirm !== "DELETE") return;
     try {
       await apiFetch(api.auth.deleteAccount.path, { method: api.auth.deleteAccount.method });
       localStorage.removeItem("budget_auth_token");
       window.location.reload();
     } catch {
-      alert("Failed to delete account. Try again.");
+      toast({ title: "Error", description: "Failed to delete account. Try again.", variant: "destructive" });
     }
   };
 
@@ -168,12 +187,34 @@ export function ToolsTab() {
           <h3 className="text-sm font-bold text-foreground">Tools</h3>
           <p className="text-xs text-muted-foreground mt-1">Housekeeping and data management</p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <button onClick={handleReset} className="p-4 bg-destructive/10 hover:bg-destructive/20 border border-destructive/30 rounded-xl text-destructive font-semibold flex flex-col items-center justify-center gap-2 transition-colors">
-            <RefreshCcw className="w-5 h-5" />
-            <span className="text-xs">Monthly Reset Only</span>
-          </button>
-        </div>
+        {showResetConfirm ? (
+          <div className="p-4 bg-destructive/10 border border-destructive/30 rounded-xl space-y-3">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-foreground">Reset expense history?</p>
+                <p className="text-xs text-muted-foreground mt-1">This clears your expense log and resets bill paid status for a new month. Your goals, paycheck, and balance are kept.</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={handleReset}
+                disabled={resetExpenses.isPending}
+                className="px-4 py-2 bg-destructive text-destructive-foreground font-semibold rounded-xl text-sm disabled:opacity-50"
+              >
+                {resetExpenses.isPending ? "Resetting..." : "Yes, Reset Month"}
+              </button>
+              <button onClick={() => setShowResetConfirm(false)} className="px-4 py-2 border border-border text-foreground rounded-xl text-sm">Cancel</button>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button onClick={() => setShowResetConfirm(true)} className="p-4 bg-destructive/10 hover:bg-destructive/20 border border-destructive/30 rounded-xl text-destructive font-semibold flex flex-col items-center justify-center gap-2 transition-colors">
+              <RefreshCcw className="w-5 h-5" />
+              <span className="text-xs">Monthly Reset Only</span>
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="glass-panel p-6">
@@ -201,8 +242,8 @@ export function ToolsTab() {
             <input type="text" value={bigGoalNameInput} onChange={e => setBigGoalNameInput(e.target.value)} placeholder="e.g. New Car, Moving Out, Vacation..." className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm focus:border-primary outline-none" />
           </div>
         </div>
-        <button onClick={handleSavePools} className="px-6 py-3 bg-primary text-primary-foreground font-semibold rounded-xl hover:bg-primary/90 transition-colors flex items-center gap-2 shadow-lg shadow-primary/20">
-          <Save className="w-4 h-4" /> Save settings
+        <button onClick={handleSavePools} disabled={updateSettings.isPending} className="px-6 py-3 bg-primary text-primary-foreground font-semibold rounded-xl hover:bg-primary/90 transition-colors flex items-center gap-2 shadow-lg shadow-primary/20 disabled:opacity-50">
+          <Save className="w-4 h-4" /> {updateSettings.isPending ? "Saving..." : "Save settings"}
         </button>
       </div>
 

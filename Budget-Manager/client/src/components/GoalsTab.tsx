@@ -4,7 +4,8 @@ import { useExpenses } from "@/hooks/use-expenses";
 import { useGoals, useCreateGoal, useUpdateGoal, useDeleteGoal } from "@/hooks/use-goals";
 import { useBills } from "@/hooks/use-bills";
 import { formatMoney, getProjectedGoalMoney, getEntertainmentUnused, getAffordability, getMonthsUntil, getLeftover } from "@/lib/budget-utils";
-import { Plus, Edit2, Trash2, TrendingUp, PiggyBank, CheckCircle2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { Plus, Edit2, Trash2, TrendingUp, PiggyBank, CheckCircle2, Loader2 } from "lucide-react";
 import type { UnlockedGoal } from "@shared/schema";
 
 export function GoalsTab() {
@@ -16,11 +17,13 @@ export function GoalsTab() {
   const createGoal = useCreateGoal();
   const updateGoal = useUpdateGoal();
   const deleteGoal = useDeleteGoal();
+  const { toast } = useToast();
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<UnlockedGoal | null>(null);
   const [fundingGoalId, setFundingGoalId] = useState<number | null>(null);
   const [fundAmount, setFundAmount] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
   const [formData, setFormData] = useState({
     name: "", cost: "", priority: "Medium", note: "", useProtected: false
@@ -36,15 +39,25 @@ export function GoalsTab() {
 
   const handleSweepSurplus = () => {
     const sweepAmount = monthlySurplus + unusedFun;
-    if (sweepAmount <= 0) return alert("No surplus to sweep this month.");
-    if (!confirm(`Add ${formatMoney(sweepAmount)} to your Goals Pool?`)) return;
-    updateSettings.mutate({ rolloverPool: (currentPool + sweepAmount).toFixed(2) });
+    if (sweepAmount <= 0) {
+      toast({ title: "Nothing to sweep", description: "There's no surplus to move into the pool this month.", variant: "destructive" });
+      return;
+    }
+    updateSettings.mutate({ rolloverPool: (currentPool + sweepAmount).toFixed(2) }, {
+      onSuccess: () => toast({ title: "Surplus swept!", description: `${formatMoney(sweepAmount)} added to your Goals Pool.` })
+    });
   };
 
   const handleAddFunds = (goal: UnlockedGoal) => {
     const amount = parseFloat(fundAmount);
-    if (isNaN(amount) || amount <= 0) return alert("Enter a valid amount.");
-    if (amount > currentPool) return alert(`You only have ${formatMoney(currentPool)} in the pool.`);
+    if (isNaN(amount) || amount <= 0) {
+      toast({ title: "Invalid amount", description: "Enter a valid dollar amount greater than zero.", variant: "destructive" });
+      return;
+    }
+    if (amount > currentPool) {
+      toast({ title: "Not enough in pool", description: `You only have ${formatMoney(currentPool)} available.`, variant: "destructive" });
+      return;
+    }
     const newContributed = (Number((goal as any).contributed || 0) + amount).toFixed(2);
     const newPool = (currentPool - amount).toFixed(2);
     updateGoal.mutate({ id: goal.id, contributed: newContributed } as any, {
@@ -52,6 +65,7 @@ export function GoalsTab() {
         updateSettings.mutate({ rolloverPool: newPool });
         setFundingGoalId(null);
         setFundAmount("");
+        toast({ title: "Funds added!", description: `${formatMoney(amount)} moved from pool to ${goal.name}.` });
       }
     });
   };
@@ -176,7 +190,10 @@ export function GoalsTab() {
               <span className="text-sm text-foreground">Count protected money (Big Goal fund + Savings) towards this goal</span>
             </label>
             <div className="flex gap-3 pt-2">
-              <button type="submit" className="px-5 py-2 bg-primary text-primary-foreground font-bold rounded-lg">{editingGoal ? "Save Changes" : "Create Goal"}</button>
+              <button type="submit" disabled={createGoal.isPending || updateGoal.isPending} className="px-5 py-2 bg-primary text-primary-foreground font-bold rounded-lg disabled:opacity-50 flex items-center gap-2">
+                {(createGoal.isPending || updateGoal.isPending) && <Loader2 className="w-4 h-4 animate-spin" />}
+                {editingGoal ? "Save Changes" : "Create Goal"}
+              </button>
               <button type="button" onClick={() => setIsFormOpen(false)} className="px-5 py-2 bg-transparent text-foreground border border-border rounded-lg">Cancel</button>
             </div>
           </form>
@@ -288,12 +305,27 @@ export function GoalsTab() {
                   {g.useProtected ? 'Uses protected money' : 'Protected money stays protected'}
                 </span>
                 <div className="flex gap-2">
-                  <button onClick={() => openForm(g)} className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors">
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button onClick={() => { if (confirm("Delete this goal?")) deleteGoal.mutate(g.id); }} className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  {confirmDeleteId === g.id ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">Delete?</span>
+                      <button
+                        onClick={() => deleteGoal.mutate(g.id, { onSuccess: () => setConfirmDeleteId(null) })}
+                        className="px-3 py-1 bg-destructive text-destructive-foreground rounded-lg text-xs font-semibold"
+                      >
+                        Yes
+                      </button>
+                      <button onClick={() => setConfirmDeleteId(null)} className="px-3 py-1 border border-border text-foreground rounded-lg text-xs">No</button>
+                    </div>
+                  ) : (
+                    <>
+                      <button onClick={() => openForm(g)} className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors">
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => setConfirmDeleteId(g.id)} className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
