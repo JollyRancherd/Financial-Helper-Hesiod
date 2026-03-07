@@ -1,9 +1,11 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { formatMoney, getSafeToSpend, getDailySafeSpend, calcDaysUntil, getEntertainmentUnused, getMonthlyGoalPace, getReservedMoney, getSpentThisMonth } from "@/lib/budget-utils";
 import { useSettings, useUpdateSettings } from "@/hooks/use-settings";
 import { useExpenses } from "@/hooks/use-expenses";
 import { useBills } from "@/hooks/use-bills";
-import { Loader2 } from "lucide-react";
+import { Loader2, TriangleAlert, X } from "lucide-react";
+
+const currentMonthKey = new Date().toISOString().slice(0, 7);
 
 export function DashboardTab() {
   const { data: settings, isLoading: loadingSettings } = useSettings();
@@ -14,8 +16,42 @@ export function DashboardTab() {
   const [checkingInput, setCheckingInput] = useState("");
   const [paydayInput, setPaydayInput] = useState("");
   const [isEditing, setIsEditing] = useState(false);
+  const [dismissedBanner, setDismissedBanner] = useState(false);
 
-  if (loadingSettings || loadingExpenses || loadingBills) return <div className="p-8 flex justify-center"><Loader2 className="animate-spin text-primary" /></div>;
+  const overdueBills = useMemo(() => {
+    if (!bills) return [];
+    return bills.filter(b => {
+      if (b.active === false) return false;
+      if ((b as any).paidMonth === currentMonthKey) return false;
+      const now = new Date();
+      const dueDate = new Date(now.getFullYear(), now.getMonth(), b.dueDay, 12);
+      const todayNoon = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12);
+      const days = Math.ceil((dueDate.getTime() - todayNoon.getTime()) / 86400000);
+      return days <= 3;
+    });
+  }, [bills]);
+
+  const payCycleData = useMemo(() => {
+    if (!settings?.nextPayday) return null;
+    const next = new Date(settings.nextPayday + "T12:00:00");
+    const cycleStart = new Date(next.getTime() - 14 * 86400000);
+    const today = new Date();
+    const todayNoon = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12);
+    const elapsed = Math.max(0, Math.floor((todayNoon.getTime() - cycleStart.getTime()) / 86400000));
+    const total = 14;
+    const pct = Math.min(100, Math.round((elapsed / total) * 100));
+    return { elapsed, total, pct };
+  }, [settings?.nextPayday]);
+
+  const dailyBurnRate = useMemo(() => {
+    const elapsed = payCycleData?.elapsed || 0;
+    const spent = getSpentThisMonth(expenses || []);
+    return elapsed > 0 ? spent / elapsed : 0;
+  }, [payCycleData, expenses]);
+
+  if (loadingSettings || loadingExpenses || loadingBills) {
+    return <div className="p-8 flex justify-center"><Loader2 className="animate-spin text-primary" /></div>;
+  }
 
   const safe = getSafeToSpend(settings, bills);
   const dailySafe = getDailySafeSpend(settings, bills);
@@ -27,11 +63,8 @@ export function DashboardTab() {
     const payload: any = {};
     if (checkingInput) payload.checkingBalance = parseFloat(checkingInput).toFixed(2);
     if (paydayInput) payload.nextPayday = paydayInput;
-    
     if (Object.keys(payload).length > 0) {
-      updateSettings.mutate(payload, {
-        onSuccess: () => setIsEditing(false)
-      });
+      updateSettings.mutate(payload, { onSuccess: () => setIsEditing(false) });
     } else {
       setIsEditing(false);
     }
@@ -45,6 +78,37 @@ export function DashboardTab() {
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+
+      {overdueBills.length > 0 && !dismissedBanner && (
+        <div className="glass-panel p-4 border-destructive/40 bg-destructive/5 flex items-start gap-3 animate-in fade-in duration-300">
+          <TriangleAlert className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <div className="text-sm font-bold text-destructive mb-2">
+              {overdueBills.length} bill{overdueBills.length > 1 ? "s" : ""} due within 3 days
+            </div>
+            <div className="space-y-1.5">
+              {overdueBills.map(bill => {
+                const now = new Date();
+                const dueDate = new Date(now.getFullYear(), now.getMonth(), bill.dueDay, 12);
+                const todayNoon = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12);
+                const days = Math.ceil((dueDate.getTime() - todayNoon.getTime()) / 86400000);
+                return (
+                  <div key={bill.id} className="flex items-center justify-between text-xs text-foreground">
+                    <span className="flex items-center gap-1.5"><span>{bill.icon}</span> {bill.name}</span>
+                    <span className="font-mono font-semibold text-destructive">
+                      {formatMoney(bill.amount)} · {days <= 0 ? "today" : `${days}d`}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <button onClick={() => setDismissedBanner(true)} className="text-muted-foreground hover:text-foreground shrink-0">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       <div className="glass-panel p-6">
         <div className="flex justify-between items-start mb-6">
           <div>
@@ -60,13 +124,15 @@ export function DashboardTab() {
           <div className="glass-panel-soft p-4">
             <div className="text-xs text-muted-foreground mb-1">Next Payday</div>
             <div className="text-2xl font-bold text-primary mb-1 font-mono">
-              {settings?.nextPayday ? new Date(settings.nextPayday).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : "Set date"}
+              {settings?.nextPayday
+                ? new Date(settings.nextPayday + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                : "Set date"}
             </div>
             <div className="text-xs text-muted-foreground">
               {d === null ? "Enter it below" : d <= 0 ? "Payday is today!" : `${d} day(s) left`}
             </div>
           </div>
-          
+
           <div className="glass-panel-soft p-4">
             <div className="text-xs text-muted-foreground mb-1">Safe To Spend</div>
             <div className="text-2xl font-bold text-success mb-1 font-mono">{formatMoney(safe)}</div>
@@ -80,52 +146,68 @@ export function DashboardTab() {
           </div>
         </div>
 
+        {payCycleData && (
+          <div className="mb-6 p-4 bg-white/5 rounded-xl border border-white/10">
+            <div className="flex justify-between text-xs text-muted-foreground mb-2">
+              <span>Pay cycle progress</span>
+              <span className="font-mono">{payCycleData.elapsed} / {payCycleData.total} days used ({payCycleData.pct}%)</span>
+            </div>
+            <div className="w-full bg-white/10 rounded-full h-2.5 overflow-hidden mb-3">
+              <div
+                className={`h-2.5 rounded-full transition-all duration-700 ${payCycleData.pct >= 85 ? "bg-destructive" : payCycleData.pct >= 60 ? "bg-warning" : "bg-primary"}`}
+                style={{ width: `${payCycleData.pct}%` }}
+              />
+            </div>
+            <div className="flex flex-wrap justify-between gap-3 text-xs">
+              <div>
+                <span className="text-muted-foreground">Spent this cycle </span>
+                <span className="font-mono font-semibold text-foreground">{formatMoney(getSpentThisMonth(expenses || []))}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Daily burn </span>
+                <span className={`font-mono font-semibold ${dailyBurnRate > dailySafe ? "text-destructive" : "text-success"}`}>{formatMoney(dailyBurnRate)}/day</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Target </span>
+                <span className="font-mono font-semibold text-muted-foreground">{formatMoney(dailySafe)}/day</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {isEditing ? (
           <div className="space-y-4 pt-4 border-t border-border/30">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="text-xs text-muted-foreground block mb-2">Current checking balance</label>
-                <input 
-                  type="number" 
-                  step="0.01"
-                  value={checkingInput}
-                  onChange={e => setCheckingInput(e.target.value)}
-                  className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                <input
+                  type="number" step="0.01"
+                  value={checkingInput} onChange={e => setCheckingInput(e.target.value)}
+                  className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-all"
                   placeholder="0.00"
                 />
               </div>
               <div>
                 <label className="text-xs text-muted-foreground block mb-2">Next payday</label>
-                <input 
+                <input
                   type="date"
-                  value={paydayInput}
-                  onChange={e => setPaydayInput(e.target.value)}
-                  className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                  value={paydayInput} onChange={e => setPaydayInput(e.target.value)}
+                  className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-all"
                 />
               </div>
             </div>
             <div className="flex gap-3">
-              <button 
-                onClick={handleSaveMoney}
-                disabled={updateSettings.isPending}
-                className="px-6 py-2.5 bg-primary text-primary-foreground font-semibold rounded-xl hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
-              >
+              <button onClick={handleSaveMoney} disabled={updateSettings.isPending} className="px-6 py-2.5 bg-primary text-primary-foreground font-semibold rounded-xl hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20">
                 {updateSettings.isPending ? "Saving..." : "Save Tracker"}
               </button>
-              <button 
-                onClick={() => setIsEditing(false)}
-                className="px-6 py-2.5 bg-card-soft text-foreground font-semibold rounded-xl hover:bg-white/5 transition-colors border border-border"
-              >
+              <button onClick={() => setIsEditing(false)} className="px-6 py-2.5 bg-card-soft text-foreground font-semibold rounded-xl hover:bg-white/5 transition-colors border border-border">
                 Cancel
               </button>
             </div>
           </div>
         ) : (
           <div className="pt-4 border-t border-border/30">
-            <button 
-              onClick={startEditing}
-              className="px-6 py-2.5 bg-card-soft text-foreground font-semibold rounded-xl hover:bg-white/5 transition-colors border border-border shadow-sm text-sm"
-            >
+            <button onClick={startEditing} className="px-6 py-2.5 bg-card-soft text-foreground font-semibold rounded-xl hover:bg-white/5 transition-colors border border-border shadow-sm text-sm">
               Edit Money Tracker
             </button>
           </div>
@@ -152,7 +234,7 @@ export function DashboardTab() {
       </div>
 
       <div className="glass-panel p-6">
-        <div className="mb-6">
+        <div className="mb-5">
           <h3 className="text-sm font-bold text-foreground">Quick reality check</h3>
           <p className="text-xs text-muted-foreground mt-1">A simple view of where your money stands</p>
         </div>

@@ -57,7 +57,26 @@ export const unlockedGoals = pgTable("unlocked_goals", {
   cost: numeric("cost", { precision: 10, scale: 2 }).notNull(),
   priority: text("priority").notNull().default("Medium"),
   note: text("note"),
-  useProtected: boolean("use_protected").default(false).notNull()
+  useProtected: boolean("use_protected").default(false).notNull(),
+  contributed: numeric("contributed", { precision: 10, scale: 2 }).notNull().default("0.00"),
+});
+
+export const expenseTemplates = pgTable("expense_templates", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().default(1),
+  name: text("name").notNull(),
+  amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
+  allocId: text("alloc_id").notNull(),
+  icon: text("icon").notNull().default("📝"),
+});
+
+export const monthlySnapshots = pgTable("monthly_snapshots", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().default(1),
+  month: text("month").notNull(),
+  totalSpent: numeric("total_spent", { precision: 10, scale: 2 }).notNull().default("0.00"),
+  breakdown: text("breakdown").notNull().default("{}"),
+  savedAt: text("saved_at").notNull().default(""),
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, passwordHash: true, createdAt: true });
@@ -65,6 +84,8 @@ export const insertSettingsSchema = createInsertSchema(settings).omit({ id: true
 export const insertExpenseSchema = createInsertSchema(expenses).omit({ id: true, userId: true });
 export const insertRecurringBillSchema = createInsertSchema(recurringBills).omit({ id: true, userId: true });
 export const insertUnlockedGoalSchema = createInsertSchema(unlockedGoals).omit({ id: true, userId: true });
+export const insertExpenseTemplateSchema = createInsertSchema(expenseTemplates).omit({ id: true, userId: true });
+export const insertMonthlySnapshotSchema = createInsertSchema(monthlySnapshots).omit({ id: true, userId: true });
 
 export const authCredentialsSchema = z.object({
   username: z.string().trim().min(3, "Username must be at least 3 characters").max(40, "Username is too long"),
@@ -86,6 +107,10 @@ export type RecurringBill = typeof recurringBills.$inferSelect;
 export type InsertRecurringBill = z.infer<typeof insertRecurringBillSchema>;
 export type UnlockedGoal = typeof unlockedGoals.$inferSelect;
 export type InsertUnlockedGoal = z.infer<typeof insertUnlockedGoalSchema>;
+export type ExpenseTemplate = typeof expenseTemplates.$inferSelect;
+export type InsertExpenseTemplate = z.infer<typeof insertExpenseTemplateSchema>;
+export type MonthlySnapshot = typeof monthlySnapshots.$inferSelect;
+export type InsertMonthlySnapshot = z.infer<typeof insertMonthlySnapshotSchema>;
 
 export type UpdateSettingsRequest = Partial<InsertSettings>;
 export type CreateExpenseRequest = InsertExpense;

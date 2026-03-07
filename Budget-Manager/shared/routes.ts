@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { insertSettingsSchema, insertExpenseSchema, insertRecurringBillSchema, insertUnlockedGoalSchema, settings, expenses, recurringBills, unlockedGoals, authCredentialsSchema, authUserResponseSchema } from './schema';
+import { insertSettingsSchema, insertExpenseSchema, insertRecurringBillSchema, insertUnlockedGoalSchema, insertExpenseTemplateSchema, settings, expenses, recurringBills, unlockedGoals, expenseTemplates, monthlySnapshots, authCredentialsSchema, authUserResponseSchema } from './schema';
 
 export const errorSchemas = {
   validation: z.object({ message: z.string(), field: z.string().optional() }),
@@ -14,6 +14,8 @@ export const api = {
     register: { method: 'POST' as const, path: '/api/auth/register' as const, input: authCredentialsSchema, responses: { 201: authUserResponseSchema, 400: errorSchemas.validation } },
     login: { method: 'POST' as const, path: '/api/auth/login' as const, input: authCredentialsSchema, responses: { 200: authUserResponseSchema, 400: errorSchemas.validation, 401: errorSchemas.unauthorized } },
     logout: { method: 'POST' as const, path: '/api/auth/logout' as const, responses: { 200: z.object({ message: z.string() }) } },
+    changePassword: { method: 'POST' as const, path: '/api/auth/change-password' as const, input: z.object({ oldPassword: z.string(), newPassword: z.string().min(6) }), responses: { 200: z.object({ message: z.string() }), 400: errorSchemas.validation, 401: errorSchemas.unauthorized } },
+    deleteAccount: { method: 'DELETE' as const, path: '/api/auth/account' as const, responses: { 200: z.object({ message: z.string() }), 401: errorSchemas.unauthorized } },
   },
   settings: {
     get: { method: 'GET' as const, path: '/api/settings' as const, responses: { 200: z.custom<typeof settings.$inferSelect>(), 401: errorSchemas.unauthorized } },
@@ -36,6 +38,14 @@ export const api = {
     create: { method: 'POST' as const, path: '/api/goals' as const, input: insertUnlockedGoalSchema, responses: { 201: z.custom<typeof unlockedGoals.$inferSelect>(), 400: errorSchemas.validation, 401: errorSchemas.unauthorized } },
     update: { method: 'PUT' as const, path: '/api/goals/:id' as const, input: insertUnlockedGoalSchema.partial(), responses: { 200: z.custom<typeof unlockedGoals.$inferSelect>(), 400: errorSchemas.validation, 404: errorSchemas.notFound, 401: errorSchemas.unauthorized } },
     delete: { method: 'DELETE' as const, path: '/api/goals/:id' as const, responses: { 204: z.void(), 404: errorSchemas.notFound, 401: errorSchemas.unauthorized } },
+  },
+  templates: {
+    list: { method: 'GET' as const, path: '/api/expense-templates' as const, responses: { 200: z.array(z.custom<typeof expenseTemplates.$inferSelect>()), 401: errorSchemas.unauthorized } },
+    create: { method: 'POST' as const, path: '/api/expense-templates' as const, input: insertExpenseTemplateSchema, responses: { 201: z.custom<typeof expenseTemplates.$inferSelect>(), 400: errorSchemas.validation, 401: errorSchemas.unauthorized } },
+    delete: { method: 'DELETE' as const, path: '/api/expense-templates/:id' as const, responses: { 204: z.void(), 404: errorSchemas.notFound, 401: errorSchemas.unauthorized } },
+  },
+  snapshots: {
+    list: { method: 'GET' as const, path: '/api/monthly-snapshots' as const, responses: { 200: z.array(z.custom<typeof monthlySnapshots.$inferSelect>()), 401: errorSchemas.unauthorized } },
   },
 };
 

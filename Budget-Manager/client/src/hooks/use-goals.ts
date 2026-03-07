@@ -58,6 +58,7 @@ export function useDeleteGoal() {
   return useMutation({
     mutationFn: async (id: number) => {
       const url = buildUrl(api.goals.delete.path, { id });
+      const res = await apiFetch(url, { method: api.goals.delete.method });
       if (!res.ok && res.status !== 204) throw new Error("Failed to delete goal");
     },
     onSuccess: () => {

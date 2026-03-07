@@ -5,7 +5,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { authCredentialsSchema } from "@shared/schema";
 import { z } from "zod";
-import { registerUserAndSeed, requireAuth, toSafeUser, createToken, revokeToken } from "./auth";
+import { registerUserAndSeed, requireAuth, toSafeUser, createToken, revokeToken, hashPassword, verifyPassword } from "./auth";
 
 function getUserId(req: Request) {
   return (req.user as Express.User | undefined)?.id;
@@ -28,36 +28,25 @@ export async function registerRoutes(
       const user = await registerUserAndSeed(input);
       const token = createToken(user);
       req.login(user, (err) => {
-        if (err) {
-          return res.status(201).json({ ...user, token, isNew: true });
-        }
+        if (err) return res.status(201).json({ ...user, token, isNew: true });
         return res.status(201).json({ ...user, token, isNew: true });
       });
     } catch (err) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
-      }
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
       throw err;
     }
   });
 
   app.post(api.auth.login.path, (req, res, next) => {
-    try {
-      authCredentialsSchema.parse(req.body);
-    } catch (err) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
-      }
+    try { authCredentialsSchema.parse(req.body); } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
     }
-
     passport.authenticate("local", (err: unknown, user: Express.User | false, info?: { message?: string }) => {
       if (err) return next(err);
       if (!user) return res.status(401).json({ message: info?.message || "Invalid username or password" });
       const token = createToken(user);
       req.login(user, (loginErr) => {
-        if (loginErr) {
-          return res.json({ ...user, token });
-        }
+        if (loginErr) return res.json({ ...user, token });
         return res.json({ ...user, token });
       });
     })(req, res, next);
@@ -78,6 +67,34 @@ export async function registerRoutes(
 
   app.use("/api", requireAuth);
 
+  app.post(api.auth.changePassword.path, async (req, res) => {
+    try {
+      const { oldPassword, newPassword } = api.auth.changePassword.input.parse(req.body);
+      const userId = getUserId(req)!;
+      const user = await storage.getUserById(userId);
+      if (!user) return res.status(401).json({ message: "User not found" });
+      const valid = await verifyPassword(oldPassword, user.passwordHash);
+      if (!valid) return res.status(400).json({ message: "Current password is incorrect", field: "oldPassword" });
+      const newHash = await hashPassword(newPassword);
+      await storage.updateUserPassword(userId, newHash);
+      res.json({ message: "Password changed successfully" });
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      throw err;
+    }
+  });
+
+  app.delete(api.auth.deleteAccount.path, async (req, res) => {
+    const userId = getUserId(req)!;
+    const token = req.headers["x-auth-token"] as string | undefined;
+    if (token) revokeToken(token);
+    req.logout((err) => {
+      if (err) console.error("logout error on account delete", err);
+    });
+    await storage.deleteUser(userId);
+    res.json({ message: "Account deleted successfully" });
+  });
+
   app.get(api.settings.get.path, async (req, res) => {
     const s = await storage.getSettings(getUserId(req)!);
     res.json(s);
@@ -89,9 +106,7 @@ export async function registerRoutes(
       const updated = await storage.updateSettings(getUserId(req)!, input);
       res.json(updated);
     } catch (err) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
-      }
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
       throw err;
     }
   });
@@ -112,9 +127,7 @@ export async function registerRoutes(
       await storage.updateSettings(userId, { checkingBalance: newBalance.toFixed(2) });
       res.status(201).json(created);
     } catch (err) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
-      }
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
       throw err;
     }
   });
@@ -142,9 +155,7 @@ export async function registerRoutes(
       const created = await storage.createBill(getUserId(req)!, input);
       res.status(201).json(created);
     } catch (err) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
-      }
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
       throw err;
     }
   });
@@ -158,9 +169,7 @@ export async function registerRoutes(
       if (!updated) return res.status(404).json({ message: "Bill not found" });
       res.json(updated);
     } catch (err) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
-      }
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
       throw err;
     }
   });
@@ -183,9 +192,7 @@ export async function registerRoutes(
       const created = await storage.createGoal(getUserId(req)!, input);
       res.status(201).json(created);
     } catch (err) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
-      }
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
       throw err;
     }
   });
@@ -199,9 +206,7 @@ export async function registerRoutes(
       if (!updated) return res.status(404).json({ message: "Goal not found" });
       res.json(updated);
     } catch (err) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
-      }
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
       throw err;
     }
   });
@@ -211,6 +216,34 @@ export async function registerRoutes(
     if (isNaN(id)) return res.status(404).json({ message: "Invalid ID" });
     await storage.deleteGoal(getUserId(req)!, id);
     res.status(204).end();
+  });
+
+  app.get(api.templates.list.path, async (req, res) => {
+    const templates = await storage.getTemplates(getUserId(req)!);
+    res.json(templates);
+  });
+
+  app.post(api.templates.create.path, async (req, res) => {
+    try {
+      const input = api.templates.create.input.parse(req.body);
+      const created = await storage.createTemplate(getUserId(req)!, input);
+      res.status(201).json(created);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      throw err;
+    }
+  });
+
+  app.delete(api.templates.delete.path, async (req, res) => {
+    const id = Number(req.params.id);
+    if (isNaN(id)) return res.status(404).json({ message: "Invalid ID" });
+    await storage.deleteTemplate(getUserId(req)!, id);
+    res.status(204).end();
+  });
+
+  app.get(api.snapshots.list.path, async (req, res) => {
+    const snaps = await storage.getMonthlySnapshots(getUserId(req)!);
+    res.json(snaps);
   });
 
   return httpServer;

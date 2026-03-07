@@ -14,17 +14,27 @@ A personal finance and budgeting web app designed for iPhone & iPad, built with 
   - `pages/OnboardingPage.tsx` — New user setup questionnaire
   - `pages/Home.tsx` — Main app shell with tabs
   - `components/` — Tab components (Dashboard, Advisor, Budget, Bills, Goals, History, Log, Tools, Calendar)
-  - `hooks/` — use-auth, use-settings, use-bills, use-expenses, use-goals
+  - `hooks/` — use-auth, use-settings, use-bills, use-expenses, use-goals, use-templates
   - `lib/api-fetch.ts` — Authenticated fetch utility (X-Auth-Token header)
   - `lib/budget-utils.ts` — Core calculation functions
   - `lib/constants.ts` — PHASE1_ALLOCS, PHASE2_ALLOCS, fallback values
 - `Budget-Manager/server/` — Express backend (auth, routes, storage, db)
 - `Budget-Manager/shared/schema.ts` — Drizzle schema + Zod validators
+- `Budget-Manager/shared/routes.ts` — Typed API routes shared with frontend
 
 ## Auth System
 - Token-based auth (random token stored in localStorage, sent via X-Auth-Token header)
 - Tokens stored in-memory Map in server/auth.ts (reset on server restart)
 - iCloud Keychain + Face ID via Safari's password autofill
+
+## Database Tables
+- `users` — accounts
+- `settings` — per-user financial settings and fund balances
+- `expenses` — logged expense transactions
+- `recurring_bills` — monthly bills with paidMonth tracking
+- `unlocked_goals` — future savings goals with `contributed` field for per-goal funding
+- `expense_templates` — saved quick-add shortcuts for common expenses
+- `monthly_snapshots` — archived spending history saved on monthly reset
 
 ## Settings Schema Fields
 - `paycheck`, `checkingBalance`, `nextPayday`, `phase`
@@ -43,7 +53,15 @@ A personal finance and budgeting web app designed for iPhone & iPad, built with 
 - **Export to CSV**: Download expenses as CSV from History tab
 - **Goals Pool gauge**: Green gauge showing how the pool fills toward total goals cost
 - **Sweep surplus button**: One tap adds monthly leftover + unused fun budget to Goals Pool
-- Safe-to-spend, daily spend, calendar, advisor insights
+- **Per-goal contributions**: Track how much of the pool is earmarked for each specific goal
+- **Monthly history**: Past months archived on reset, viewable in History > Past Months with charts
+- **Recurring expense templates**: Save common expenses as quick-tap shortcuts in Log tab
+- **Bill-due reminders**: Dashboard shows dismissable banner when bills are due within 3 days
+- **Pay cycle progress bar**: Visual bar showing how far through the pay cycle you are, with daily burn rate
+- **Calendar improvements**: Payday marked in green, paid bills shown with checkmarks, legend
+- **Change password**: In Tools tab, secured with current password verification
+- **Delete account**: In Tools tab, requires typing "DELETE" to confirm
+- Safe-to-spend, daily spend, calendar, advisor insights, debt countdown
 
 ## Workflow
 `cd Budget-Manager && npm run dev` — starts dev server on port 5000

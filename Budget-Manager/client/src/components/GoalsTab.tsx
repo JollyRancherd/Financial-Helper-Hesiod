@@ -4,7 +4,7 @@ import { useExpenses } from "@/hooks/use-expenses";
 import { useGoals, useCreateGoal, useUpdateGoal, useDeleteGoal } from "@/hooks/use-goals";
 import { useBills } from "@/hooks/use-bills";
 import { formatMoney, getProjectedGoalMoney, getEntertainmentUnused, getAffordability, getMonthsUntil, getLeftover } from "@/lib/budget-utils";
-import { Plus, Edit2, Trash2, TrendingUp } from "lucide-react";
+import { Plus, Edit2, Trash2, TrendingUp, PiggyBank, CheckCircle2 } from "lucide-react";
 import type { UnlockedGoal } from "@shared/schema";
 
 export function GoalsTab() {
@@ -19,6 +19,8 @@ export function GoalsTab() {
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<UnlockedGoal | null>(null);
+  const [fundingGoalId, setFundingGoalId] = useState<number | null>(null);
+  const [fundAmount, setFundAmount] = useState("");
 
   const [formData, setFormData] = useState({
     name: "", cost: "", priority: "Medium", note: "", useProtected: false
@@ -39,16 +41,25 @@ export function GoalsTab() {
     updateSettings.mutate({ rolloverPool: (currentPool + sweepAmount).toFixed(2) });
   };
 
+  const handleAddFunds = (goal: UnlockedGoal) => {
+    const amount = parseFloat(fundAmount);
+    if (isNaN(amount) || amount <= 0) return alert("Enter a valid amount.");
+    if (amount > currentPool) return alert(`You only have ${formatMoney(currentPool)} in the pool.`);
+    const newContributed = (Number((goal as any).contributed || 0) + amount).toFixed(2);
+    const newPool = (currentPool - amount).toFixed(2);
+    updateGoal.mutate({ id: goal.id, contributed: newContributed } as any, {
+      onSuccess: () => {
+        updateSettings.mutate({ rolloverPool: newPool });
+        setFundingGoalId(null);
+        setFundAmount("");
+      }
+    });
+  };
+
   const openForm = (goal?: UnlockedGoal) => {
     if (goal) {
       setEditingGoal(goal);
-      setFormData({
-        name: goal.name,
-        cost: Number(goal.cost).toString(),
-        priority: goal.priority,
-        note: goal.note || "",
-        useProtected: goal.useProtected
-      });
+      setFormData({ name: goal.name, cost: Number(goal.cost).toString(), priority: goal.priority, note: goal.note || "", useProtected: goal.useProtected });
     } else {
       setEditingGoal(null);
       setFormData({ name: "", cost: "", priority: "Medium", note: "", useProtected: false });
@@ -58,14 +69,7 @@ export function GoalsTab() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const payload = {
-      name: formData.name,
-      cost: parseFloat(formData.cost).toFixed(2),
-      priority: formData.priority,
-      note: formData.note,
-      useProtected: formData.useProtected
-    };
-
+    const payload = { name: formData.name, cost: parseFloat(formData.cost).toFixed(2), priority: formData.priority, note: formData.note, useProtected: formData.useProtected };
     if (editingGoal) {
       updateGoal.mutate({ id: editingGoal.id, ...payload }, { onSuccess: () => setIsFormOpen(false) });
     } else {
@@ -88,10 +92,7 @@ export function GoalsTab() {
         </div>
 
         <div className="w-full bg-white/10 rounded-full h-4 mb-4 overflow-hidden">
-          <div
-            className="h-4 rounded-full bg-success transition-all duration-700 ease-out"
-            style={{ width: `${poolPct}%` }}
-          />
+          <div className="h-4 rounded-full bg-success transition-all duration-700 ease-out" style={{ width: `${poolPct}%` }} />
         </div>
 
         <div className="grid grid-cols-3 gap-4 mb-5">
@@ -153,25 +154,25 @@ export function GoalsTab() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="text-xs text-muted-foreground block mb-1">Name</label>
-                <input required type="text" value={formData.name} onChange={e=>setFormData({...formData, name: e.target.value})} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:border-primary outline-none" />
+                <input required type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:border-primary outline-none" />
               </div>
               <div>
                 <label className="text-xs text-muted-foreground block mb-1">Cost</label>
-                <input required type="number" step="0.01" value={formData.cost} onChange={e=>setFormData({...formData, cost: e.target.value})} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:border-primary outline-none font-mono" />
+                <input required type="number" step="0.01" value={formData.cost} onChange={e => setFormData({ ...formData, cost: e.target.value })} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:border-primary outline-none font-mono" />
               </div>
               <div>
                 <label className="text-xs text-muted-foreground block mb-1">Priority</label>
-                <select value={formData.priority} onChange={e=>setFormData({...formData, priority: e.target.value})} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:border-primary outline-none">
+                <select value={formData.priority} onChange={e => setFormData({ ...formData, priority: e.target.value })} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:border-primary outline-none">
                   <option>Low</option><option>Medium</option><option>High</option>
                 </select>
               </div>
               <div>
                 <label className="text-xs text-muted-foreground block mb-1">Note (Optional)</label>
-                <input type="text" value={formData.note} onChange={e=>setFormData({...formData, note: e.target.value})} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:border-primary outline-none" />
+                <input type="text" value={formData.note} onChange={e => setFormData({ ...formData, note: e.target.value })} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:border-primary outline-none" />
               </div>
             </div>
             <label className="flex items-center gap-2 mt-2 cursor-pointer p-3 bg-white/5 rounded-lg border border-white/10">
-              <input type="checkbox" checked={formData.useProtected} onChange={e=>setFormData({...formData, useProtected: e.target.checked})} className="accent-primary w-4 h-4" />
+              <input type="checkbox" checked={formData.useProtected} onChange={e => setFormData({ ...formData, useProtected: e.target.checked })} className="accent-primary w-4 h-4" />
               <span className="text-sm text-foreground">Count protected money (Big Goal fund + Savings) towards this goal</span>
             </label>
             <div className="flex gap-3 pt-2">
@@ -193,18 +194,26 @@ export function GoalsTab() {
         {goals?.map(g => {
           const info = getAffordability(g, settings, bills);
           const months = getMonthsUntil(Number(g.cost), settings, expenses || [], bills);
-          
+          const contributed = Number((g as any).contributed || 0);
+          const goalCost = Number(g.cost);
+          const contributedPct = goalCost > 0 ? Math.min(100, (contributed / goalCost) * 100) : 0;
+          const isFullyFunded = contributed >= goalCost && goalCost > 0;
+
           let label = "Not safe yet", statusColorClass = "text-destructive", statusBg = "bg-destructive/15 border-destructive/30";
-          if (info.level === "green") { label = "Unlocked"; statusColorClass = "text-success"; statusBg = "bg-success/15 border-success/30 animate-pulse-green"; }
+          if (isFullyFunded) { label = "Fully Funded ✓"; statusColorClass = "text-success"; statusBg = "bg-success/20 border-success/40"; }
+          else if (info.level === "green") { label = "Unlocked"; statusColorClass = "text-success"; statusBg = "bg-success/15 border-success/30"; }
           else if (info.level === "yellow") { label = "Close"; statusColorClass = "text-warning"; statusBg = "bg-warning/15 border-warning/30"; }
 
-          const poolPctForGoal = Number(g.cost) > 0 ? Math.min(100, (currentPool / Number(g.cost)) * 100) : 100;
+          const isFunding = fundingGoalId === g.id;
 
           return (
             <div key={g.id} className={`glass-panel p-6 border ${statusBg}`}>
               <div className="flex justify-between items-start mb-4">
                 <div>
-                  <div className="text-lg font-bold text-foreground">{g.name}</div>
+                  <div className="text-lg font-bold text-foreground flex items-center gap-2">
+                    {g.name}
+                    {isFullyFunded && <CheckCircle2 className="w-5 h-5 text-success" />}
+                  </div>
                   <div className="text-xs text-muted-foreground mt-1">{g.note || "No note"} · Priority: {g.priority}</div>
                 </div>
                 <div className={`px-3 py-1 rounded-full text-xs font-bold border bg-background/50 ${statusColorClass} ${statusBg.split(' ')[1]}`}>
@@ -214,13 +223,41 @@ export function GoalsTab() {
 
               <div className="mb-4">
                 <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                  <span>Pool progress toward this goal</span>
-                  <span>{poolPctForGoal.toFixed(0)}%</span>
+                  <span className="flex items-center gap-1"><PiggyBank className="w-3 h-3" /> Contributed toward this goal</span>
+                  <span className="font-mono font-semibold">{formatMoney(contributed)} / {formatMoney(goalCost)} ({contributedPct.toFixed(0)}%)</span>
                 </div>
-                <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
-                  <div className="h-2 rounded-full bg-success transition-all duration-500" style={{ width: `${poolPctForGoal}%` }} />
+                <div className="w-full bg-white/10 rounded-full h-2.5 overflow-hidden">
+                  <div className="h-2.5 rounded-full bg-success transition-all duration-500" style={{ width: `${contributedPct}%` }} />
                 </div>
               </div>
+
+              {!isFullyFunded && currentPool > 0 && (
+                <div className="mb-4">
+                  {!isFunding ? (
+                    <button
+                      onClick={() => { setFundingGoalId(g.id); setFundAmount(""); }}
+                      className="flex items-center gap-2 px-4 py-2 bg-success/10 hover:bg-success/20 text-success border border-success/30 rounded-xl text-xs font-semibold transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Add funds from pool ({formatMoney(currentPool)} available)
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div className="relative flex-1 min-w-[120px]">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-mono text-xs">$</span>
+                        <input
+                          type="number" step="0.01"
+                          value={fundAmount} onChange={e => setFundAmount(e.target.value)}
+                          placeholder="0.00"
+                          className="w-full bg-background border border-border rounded-xl pl-6 pr-3 py-2 text-sm font-mono focus:border-success outline-none"
+                          autoFocus
+                        />
+                      </div>
+                      <button onClick={() => handleAddFunds(g)} className="px-4 py-2 bg-success text-success-foreground font-semibold rounded-xl text-sm">Add</button>
+                      <button onClick={() => setFundingGoalId(null)} className="px-4 py-2 border border-border text-foreground rounded-xl text-sm">Cancel</button>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div className="glass-panel-soft p-4">
@@ -239,9 +276,11 @@ export function GoalsTab() {
               </div>
 
               <p className="text-sm bg-white/5 p-4 rounded-xl border border-white/10 mb-4 leading-relaxed text-muted-foreground">
-                {info.diff >= 0 
-                  ? <><span className="text-foreground font-semibold">You can afford {g.name}</span> without financially hurting yourself based on the money this app treats as available.</>
-                  : <>At your current pace, {months === null ? 'there is no projection yet' : <>about <strong className="text-foreground">{months} month(s)</strong> to reach this safely</>}.</>}
+                {isFullyFunded
+                  ? <><span className="text-success font-semibold">This goal is fully funded!</span> You've contributed enough to cover the full cost.</>
+                  : info.diff >= 0
+                    ? <><span className="text-foreground font-semibold">You can afford {g.name}</span> without financially hurting yourself based on the money this app treats as available.</>
+                    : <>At your current pace, {months === null ? 'there is no projection yet' : <>about <strong className="text-foreground">{months} month(s)</strong> to reach this safely</>}.</>}
               </p>
 
               <div className="flex justify-between items-center pt-4 border-t border-border/20">
@@ -252,7 +291,7 @@ export function GoalsTab() {
                   <button onClick={() => openForm(g)} className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors">
                     <Edit2 className="w-4 h-4" />
                   </button>
-                  <button onClick={() => { if(confirm("Delete this goal?")) deleteGoal.mutate(g.id); }} className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors">
+                  <button onClick={() => { if (confirm("Delete this goal?")) deleteGoal.mutate(g.id); }} className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>

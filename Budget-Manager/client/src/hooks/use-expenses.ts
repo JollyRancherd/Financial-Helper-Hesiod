@@ -35,6 +35,7 @@ export function useCreateExpense() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.expenses.list.path] });
+      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
     },
   });
 }
@@ -45,9 +46,7 @@ export function useDeleteExpense() {
     mutationFn: async (id: number) => {
       const url = buildUrl(api.expenses.delete.path, { id });
       const res = await apiFetch(url, { method: api.expenses.delete.method });
-      if (!res.ok && res.status !== 204) {
-        throw new Error("Failed to delete expense");
-      }
+      if (!res.ok && res.status !== 204) throw new Error("Failed to delete expense");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.expenses.list.path] });
@@ -59,14 +58,27 @@ export function useResetExpenses() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => {
-      const res = await apiFetch(api.expenses.reset.path, { 
-        method: api.expenses.reset.method, 
+      const res = await apiFetch(api.expenses.reset.path, {
+        method: api.expenses.reset.method,
       });
       if (!res.ok) throw new Error("Failed to reset expenses");
       return api.expenses.reset.responses[200].parse(await res.json());
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.expenses.list.path] });
+      queryClient.invalidateQueries({ queryKey: [api.snapshots.list.path] });
+      queryClient.invalidateQueries({ queryKey: [api.bills.list.path] });
+    },
+  });
+}
+
+export function useMonthlySnapshots() {
+  return useQuery({
+    queryKey: [api.snapshots.list.path],
+    queryFn: async () => {
+      const res = await apiFetch(api.snapshots.list.path);
+      if (!res.ok) throw new Error("Failed to fetch snapshots");
+      return api.snapshots.list.responses[200].parse(await res.json());
     },
   });
 }

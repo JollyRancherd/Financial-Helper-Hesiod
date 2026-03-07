@@ -6,17 +6,22 @@ import {
   expenses,
   recurringBills,
   unlockedGoals,
+  expenseTemplates,
+  monthlySnapshots,
   type User,
   type Settings,
   type Expense,
   type RecurringBill,
   type UnlockedGoal,
+  type ExpenseTemplate,
+  type MonthlySnapshot,
   type UpdateSettingsRequest,
   type CreateExpenseRequest,
   type CreateRecurringBillRequest,
   type UpdateRecurringBillRequest,
   type CreateUnlockedGoalRequest,
-  type UpdateUnlockedGoalRequest
+  type UpdateUnlockedGoalRequest,
+  type InsertExpenseTemplate,
 } from "@shared/schema";
 import { DEFAULT_FIXED_BILLS } from "@shared/default-bills";
 
@@ -24,6 +29,8 @@ export interface IStorage {
   getUserById(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(data: { username: string; passwordHash: string }): Promise<User>;
+  updateUserPassword(userId: number, passwordHash: string): Promise<void>;
+  deleteUser(userId: number): Promise<void>;
   seedDefaultsForUser(userId: number): Promise<void>;
 
   getSettings(userId: number): Promise<Settings>;
@@ -43,6 +50,13 @@ export interface IStorage {
   createGoal(userId: number, goal: CreateUnlockedGoalRequest): Promise<UnlockedGoal>;
   updateGoal(userId: number, id: number, updates: UpdateUnlockedGoalRequest): Promise<UnlockedGoal | undefined>;
   deleteGoal(userId: number, id: number): Promise<void>;
+
+  getTemplates(userId: number): Promise<ExpenseTemplate[]>;
+  createTemplate(userId: number, data: Omit<InsertExpenseTemplate, "userId">): Promise<ExpenseTemplate>;
+  deleteTemplate(userId: number, id: number): Promise<void>;
+
+  getMonthlySnapshots(userId: number): Promise<MonthlySnapshot[]>;
+  saveMonthlySnapshot(userId: number, month: string, totalSpent: string, breakdown: string): Promise<MonthlySnapshot>;
 }
 
 const DEFAULT_UNLOCKED_GOALS: { name: string; cost: string; priority: string; note: string; useProtected: boolean }[] = [];
@@ -61,6 +75,20 @@ export class DatabaseStorage implements IStorage {
   async createUser(data: { username: string; passwordHash: string }): Promise<User> {
     const [created] = await db.insert(users).values(data).returning();
     return created;
+  }
+
+  async updateUserPassword(userId: number, passwordHash: string): Promise<void> {
+    await db.update(users).set({ passwordHash }).where(eq(users.id, userId));
+  }
+
+  async deleteUser(userId: number): Promise<void> {
+    await db.delete(expenses).where(eq(expenses.userId, userId));
+    await db.delete(recurringBills).where(eq(recurringBills.userId, userId));
+    await db.delete(unlockedGoals).where(eq(unlockedGoals.userId, userId));
+    await db.delete(expenseTemplates).where(eq(expenseTemplates.userId, userId));
+    await db.delete(monthlySnapshots).where(eq(monthlySnapshots.userId, userId));
+    await db.delete(settings).where(eq(settings.userId, userId));
+    await db.delete(users).where(eq(users.id, userId));
   }
 
   async seedDefaultsForUser(userId: number): Promise<void> {
@@ -107,6 +135,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async resetExpenses(userId: number): Promise<void> {
+    const currentExpenses = await this.getExpenses(userId);
+    if (currentExpenses.length > 0) {
+      const totalSpent = currentExpenses.reduce((s, e) => s + Number(e.amount), 0).toFixed(2);
+      const breakdown: Record<string, number> = {};
+      currentExpenses.forEach(e => { breakdown[e.allocId] = (breakdown[e.allocId] || 0) + Number(e.amount); });
+      const month = new Date().toISOString().slice(0, 7);
+      await this.saveMonthlySnapshot(userId, month, totalSpent, JSON.stringify(breakdown));
+    }
     await db.delete(expenses).where(eq(expenses.userId, userId));
     await db.update(recurringBills).set({ paidMonth: "" }).where(eq(recurringBills.userId, userId));
   }
@@ -151,6 +187,40 @@ export class DatabaseStorage implements IStorage {
 
   async deleteGoal(userId: number, id: number): Promise<void> {
     await db.delete(unlockedGoals).where(and(eq(unlockedGoals.id, id), eq(unlockedGoals.userId, userId)));
+  }
+
+  async getTemplates(userId: number): Promise<ExpenseTemplate[]> {
+    return await db.select().from(expenseTemplates).where(eq(expenseTemplates.userId, userId));
+  }
+
+  async createTemplate(userId: number, data: Omit<InsertExpenseTemplate, "userId">): Promise<ExpenseTemplate> {
+    const [created] = await db.insert(expenseTemplates).values({ ...data, userId }).returning();
+    return created;
+  }
+
+  async deleteTemplate(userId: number, id: number): Promise<void> {
+    await db.delete(expenseTemplates).where(and(eq(expenseTemplates.id, id), eq(expenseTemplates.userId, userId)));
+  }
+
+  async getMonthlySnapshots(userId: number): Promise<MonthlySnapshot[]> {
+    return await db.select().from(monthlySnapshots).where(eq(monthlySnapshots.userId, userId));
+  }
+
+  async saveMonthlySnapshot(userId: number, month: string, totalSpent: string, breakdown: string): Promise<MonthlySnapshot> {
+    const existing = await db.select().from(monthlySnapshots)
+      .where(and(eq(monthlySnapshots.userId, userId), eq(monthlySnapshots.month, month)))
+      .limit(1);
+    if (existing.length > 0) {
+      const [updated] = await db.update(monthlySnapshots)
+        .set({ totalSpent, breakdown, savedAt: new Date().toISOString() })
+        .where(and(eq(monthlySnapshots.id, existing[0].id), eq(monthlySnapshots.userId, userId)))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(monthlySnapshots)
+      .values({ userId, month, totalSpent, breakdown, savedAt: new Date().toISOString() })
+      .returning();
+    return created;
   }
 }
 
