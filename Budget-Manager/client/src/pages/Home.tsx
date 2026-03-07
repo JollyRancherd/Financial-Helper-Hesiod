@@ -45,7 +45,7 @@ export default function Home() {
     }
     return {
       title: "Growth / Move-Out Focus",
-      subtitle: "Debt is handled, so the plan shifts toward apartment and savings goals.",
+      subtitle: "Debt is handled, so the plan shifts toward savings goals.",
       chip: "Next-level plan",
     };
   }, [phase]);

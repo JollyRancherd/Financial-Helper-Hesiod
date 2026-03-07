@@ -224,7 +224,7 @@ export default function OnboardingPage({ username, onComplete }: OnboardingProps
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Apartment / move-out fund target</label>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Savings fund target</label>
                   <div className="flex items-center gap-3 border border-border/30 rounded-2xl px-4 py-3 bg-card/40 focus-within:border-primary/50 transition-all">
                     <span className="text-muted-foreground font-semibold">$</span>
                     <input

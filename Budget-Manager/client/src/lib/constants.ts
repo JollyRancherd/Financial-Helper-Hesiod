@@ -37,11 +37,11 @@ export const PHASE1_ALLOCS: Allocation[] = [
   { id: "gas", name: "Gas", recommended: 35, color: "hsl(var(--warning))", icon: "⛽", note: "~1 tank/month" },
   { id: "entertainment", name: "Fun Money", recommended: 100, color: "hsl(var(--accent))", icon: "🎉", note: "You deserve some" },
   { id: "savings", name: "Savings", recommended: 0, color: "hsl(var(--success))", icon: "💰", note: "Paused — starts Phase 2" },
-  { id: "apartment", name: "Apartment Fund", recommended: 0, color: "hsl(var(--warning))", icon: "🏠", note: "Starts after debt is gone" },
+  { id: "apartment", name: "Savings Fund", recommended: 0, color: "hsl(var(--warning))", icon: "💰", note: "Starts after debt is gone" },
 ];
 
 export const PHASE2_ALLOCS: Allocation[] = [
-  { id: "apartment", name: "Apartment Fund", recommended: 600, color: "hsl(var(--warning))", icon: "🏠", note: "Goal: $3,000 by Nov/Dec 2026" },
+  { id: "apartment", name: "Savings Fund", recommended: 600, color: "hsl(var(--warning))", icon: "💰", note: "Goal: $3,000 by Nov/Dec 2026" },
   { id: "emergency", name: "Emergency Fund", recommended: 300, color: "hsl(var(--primary))", icon: "🛡️", note: "Build to $3,000 long term" },
   { id: "savings", name: "General Savings", recommended: 200, color: "hsl(var(--success))", icon: "💰", note: "Long-term wealth building" },
   { id: "groceries", name: "Groceries", recommended: 300, color: "hsl(var(--warning))", icon: "🛒", note: "Food + basics" },
