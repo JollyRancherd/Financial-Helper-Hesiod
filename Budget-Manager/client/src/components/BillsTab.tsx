@@ -91,6 +91,13 @@ export function BillsTab() {
 
       <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_0.9fr] gap-4">
         <div className="space-y-3">
+          {upcoming.length === 0 && (
+            <div className="glass-panel p-8 text-center">
+              <div className="text-4xl mb-3">📅</div>
+              <div className="text-lg font-semibold text-foreground mb-1">No bills yet</div>
+              <div className="text-sm text-muted-foreground">Tap + to add your recurring bills and subscriptions.</div>
+            </div>
+          )}
           {upcoming.map(bill => {
             const days = nextDueDays(bill.dueDay);
             const isDanger = days <= 2;

@@ -147,6 +147,13 @@ export function GoalsTab() {
       )}
 
       <div className="space-y-4">
+        {goals?.length === 0 && (
+          <div className="glass-panel p-8 text-center">
+            <div className="text-4xl mb-3">🎯</div>
+            <div className="text-lg font-semibold text-foreground mb-1">No goals yet</div>
+            <div className="text-sm text-muted-foreground">Tap the + button above to add your first savings goal.</div>
+          </div>
+        )}
         {goals?.map(g => {
           const info = getAffordability(g, settings, bills);
           const months = getMonthsUntil(Number(g.cost), settings, expenses || [], bills);

@@ -22,7 +22,10 @@ export const settings = pgTable("settings", {
   apartmentFund: numeric("apartment_fund", { precision: 10, scale: 2 }).notNull().default("0.00"),
   debtPaid: numeric("debt_paid", { precision: 10, scale: 2 }).notNull().default("0.00"),
   savingsFund: numeric("savings_fund", { precision: 10, scale: 2 }).notNull().default("0.00"),
-  rolloverPool: numeric("rollover_pool", { precision: 10, scale: 2 }).notNull().default("0.00")
+  rolloverPool: numeric("rollover_pool", { precision: 10, scale: 2 }).notNull().default("0.00"),
+  totalDebt: numeric("total_debt", { precision: 10, scale: 2 }).notNull().default("0.00"),
+  emergencyGoal: numeric("emergency_goal", { precision: 10, scale: 2 }).notNull().default("1000.00"),
+  apartmentGoal: numeric("apartment_goal", { precision: 10, scale: 2 }).notNull().default("3000.00")
 });
 
 export const expenses = pgTable("expenses", {

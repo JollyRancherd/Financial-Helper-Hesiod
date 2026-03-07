@@ -45,12 +45,7 @@ export interface IStorage {
   deleteGoal(userId: number, id: number): Promise<void>;
 }
 
-const DEFAULT_UNLOCKED_GOALS = [
-  { name: "China Trip", cost: "2500.00", priority: "High", note: "Flight + hotel + spending", useProtected: false },
-  { name: "Gaming PC", cost: "1800.00", priority: "Medium", note: "Full setup", useProtected: false },
-  { name: "Car Down Payment", cost: "4000.00", priority: "High", note: "Keep it safe", useProtected: false },
-  { name: "Japan Trip", cost: "7000.00", priority: "High", note: "Big trip", useProtected: false },
-] as const;
+const DEFAULT_UNLOCKED_GOALS: { name: string; cost: string; priority: string; note: string; useProtected: boolean }[] = [];
 
 export class DatabaseStorage implements IStorage {
   async getUserById(id: number): Promise<User | undefined> {

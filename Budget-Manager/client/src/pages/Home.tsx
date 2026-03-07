@@ -181,9 +181,9 @@ export default function Home() {
         </div>
 
         <div className="grid grid-cols-3 gap-4">
-          <ProgressRing value={settings.emergencyFund} max={EMERGENCY_GOAL} label="Emergency Fund" color="hsl(var(--primary))" settingsKey="emergencyFund" />
-          <ProgressRing value={settings.apartmentFund} max={APARTMENT_GOAL} label="Apartment Fund" color="hsl(var(--warning))" settingsKey="apartmentFund" />
-          <ProgressRing value={settings.debtPaid} max={TOTAL_DEBT} label="Debt Cleared" color="hsl(var(--destructive))" settingsKey="debtPaid" />
+          <ProgressRing value={settings.emergencyFund} max={Number((settings as any).emergencyGoal) || EMERGENCY_GOAL} label="Emergency Fund" color="hsl(var(--primary))" settingsKey="emergencyFund" />
+          <ProgressRing value={settings.apartmentFund} max={Number((settings as any).apartmentGoal) || APARTMENT_GOAL} label="Apartment Fund" color="hsl(var(--warning))" settingsKey="apartmentFund" />
+          <ProgressRing value={settings.debtPaid} max={Number((settings as any).totalDebt) || TOTAL_DEBT} label="Debt Cleared" color="hsl(var(--destructive))" settingsKey="debtPaid" />
         </div>
       </header>
 

@@ -37,7 +37,15 @@ export const getSpentByAlloc = (expenses: Expense[]) => {
 };
 
 export const getSpentThisMonth = (expenses: Expense[]) => expenses.reduce((s, e) => s + Number(e.amount), 0);
-export const getDebtRemaining = (settings: Settings | null | undefined) => Math.max(0, TOTAL_DEBT - Number(settings?.debtPaid || 0));
+export const getDebtRemaining = (settings: Settings | null | undefined) => {
+  const totalDebt = Number((settings as any)?.totalDebt ?? 0);
+  const debtPaid = Number(settings?.debtPaid || 0);
+  // totalDebt > 0 → user set their real debt total
+  // totalDebt == 0 and debtPaid == 0 → user said debt-free in onboarding
+  // totalDebt == 0 and debtPaid > 0 → legacy user using hardcoded constant
+  const total = totalDebt > 0 ? totalDebt : (debtPaid > 0 ? TOTAL_DEBT : 0);
+  return Math.max(0, total - debtPaid);
+};
 
 export const calcDaysUntil = (dateStr: string | null | undefined): number | null => {
   if (!dateStr) return null;

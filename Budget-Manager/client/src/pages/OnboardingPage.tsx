@@ -51,6 +51,7 @@ export default function OnboardingPage({ username, onComplete }: OnboardingProps
   };
 
   const finish = async () => {
+    const debtTotal = data.hasDebt && Number(data.debtAmount) > 0 ? Number(data.debtAmount).toFixed(2) : "0.00";
     await updateSettings.mutateAsync({
       paycheck: Number(data.paycheck).toFixed(2),
       checkingBalance: Number(data.checkingBalance).toFixed(2),
@@ -58,8 +59,11 @@ export default function OnboardingPage({ username, onComplete }: OnboardingProps
       emergencyFund: "0",
       apartmentFund: "0",
       debtPaid: "0",
-      phase: data.hasDebt && Number(data.debtAmount) > 0 ? 1 : 2,
-    });
+      totalDebt: debtTotal,
+      emergencyGoal: Number(data.emergencyGoal || 1000).toFixed(2),
+      apartmentGoal: Number(data.apartmentGoal || 3000).toFixed(2),
+      phase: Number(debtTotal) > 0 ? 1 : 2,
+    } as any);
     onComplete();
   };
 
