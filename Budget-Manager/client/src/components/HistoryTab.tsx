@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useSettings } from "@/hooks/use-settings";
 import { useExpenses, useDeleteExpense, useMonthlySnapshots } from "@/hooks/use-expenses";
+import { useToast } from "@/hooks/use-toast";
 import { formatMoney, getAllocs, getSpentByAlloc, getSpentThisMonth } from "@/lib/budget-utils";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
-import { Trash2, Download, History } from "lucide-react";
+import { Trash2, Download, History, Search, X, AlertTriangle } from "lucide-react";
 
 type HistoryView = "current" | "past";
 
@@ -12,7 +13,10 @@ export function HistoryTab() {
   const { data: expenses } = useExpenses();
   const { data: snapshots } = useMonthlySnapshots();
   const deleteExpense = useDeleteExpense();
+  const { toast } = useToast();
   const [view, setView] = useState<HistoryView>("current");
+  const [search, setSearch] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
   const allAllocs = [...getAllocs(1), ...getAllocs(2)];
   const total = getSpentThisMonth(expenses || []);
@@ -22,8 +26,21 @@ export function HistoryTab() {
     .filter(a => spentByAlloc[a.id] > 0)
     .map(a => ({ name: a.name.replace(" Fund", "").replace(" Money", ""), amount: spentByAlloc[a.id], color: a.color }));
 
+  const filteredExpenses = useMemo(() => {
+    const all = [...(expenses || [])].reverse();
+    if (!search.trim()) return all;
+    const q = search.toLowerCase();
+    return all.filter(e =>
+      e.name.toLowerCase().includes(q) ||
+      e.allocId.toLowerCase().includes(q)
+    );
+  }, [expenses, search]);
+
   const handleExport = () => {
-    if (!expenses || expenses.length === 0) return alert("No expenses to export.");
+    if (!expenses || expenses.length === 0) {
+      toast({ title: "Nothing to export", description: "Log some expenses first.", variant: "destructive" });
+      return;
+    }
     const headers = ["Date", "Name", "Category", "Amount"];
     const rows = expenses.map(e => [
       e.date,
@@ -41,6 +58,16 @@ export function HistoryTab() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    toast({ title: "Exported!", description: `${expenses.length} expense${expenses.length !== 1 ? 's' : ''} saved as CSV.` });
+  };
+
+  const handleDelete = (id: number, name: string) => {
+    deleteExpense.mutate(id, {
+      onSuccess: () => {
+        setConfirmDeleteId(null);
+        toast({ title: "Expense removed", description: `"${name}" has been deleted.` });
+      }
+    });
   };
 
   const sortedSnapshots = [...(snapshots || [])].sort((a, b) => b.month.localeCompare(a.month));
@@ -104,43 +131,88 @@ export function HistoryTab() {
             </div>
           )}
 
-          {(!expenses || expenses.length === 0) && (
+          {(!expenses || expenses.length === 0) ? (
             <div className="glass-panel p-12 flex flex-col items-center justify-center text-center">
               <div className="text-4xl mb-3">📋</div>
               <div className="text-sm font-semibold text-foreground mb-2">No expenses yet</div>
               <p className="text-xs text-muted-foreground max-w-[200px]">Head to the Log tab and start tracking.</p>
             </div>
-          )}
+          ) : (
+            <>
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Search expenses..."
+                  className="w-full bg-background border border-border rounded-xl pl-10 pr-10 py-3 text-sm focus:outline-none focus:border-primary transition-all"
+                />
+                {search && (
+                  <button onClick={() => setSearch("")} className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
 
-          <div className="space-y-2">
-            {[...(expenses || [])].reverse().map(e => {
-              const alloc = allAllocs.find(a => a.id === e.allocId) || { color: "hsl(var(--muted))", icon: "📝" };
-              return (
-                <div key={e.id} className="glass-panel p-4 flex justify-between items-center hover:bg-white/[0.02] transition-colors group">
-                  <div>
-                    <div className="text-sm font-bold text-foreground flex items-center gap-2">
-                      <span>{alloc.icon}</span> {e.name}
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {e.date} · <span className="uppercase tracking-wider opacity-70 text-[10px]">{e.allocId}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-base font-bold font-mono" style={{ color: alloc.color }}>
-                      -{formatMoney(e.amount)}
-                    </div>
-                    <button
-                      onClick={() => deleteExpense.mutate(e.id)}
-                      className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                      title="Delete entry"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+              {filteredExpenses.length === 0 && search && (
+                <div className="glass-panel p-8 text-center">
+                  <div className="text-3xl mb-2">🔍</div>
+                  <div className="text-sm font-semibold text-foreground mb-1">No results for "{search}"</div>
+                  <p className="text-xs text-muted-foreground">Try a different name or category.</p>
                 </div>
-              );
-            })}
-          </div>
+              )}
+
+              <div className="space-y-2">
+                {filteredExpenses.map(e => {
+                  const alloc = allAllocs.find(a => a.id === e.allocId) || { color: "hsl(var(--muted))", icon: "📝" };
+                  const isConfirmingDelete = confirmDeleteId === e.id;
+                  return (
+                    <div key={e.id} className="glass-panel p-4 transition-colors hover:bg-white/[0.02] group">
+                      {isConfirmingDelete ? (
+                        <div className="flex items-start gap-3">
+                          <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold text-foreground">Delete "{e.name}"?</p>
+                            <p className="text-xs text-muted-foreground mt-0.5 mb-2">{formatMoney(e.amount)} · {e.date}</p>
+                            <div className="flex gap-2">
+                              <button onClick={() => handleDelete(e.id, e.name)} disabled={deleteExpense.isPending} className="px-3 py-1.5 bg-destructive text-destructive-foreground rounded-lg text-xs font-semibold disabled:opacity-50">
+                                {deleteExpense.isPending ? "Deleting..." : "Yes, Delete"}
+                              </button>
+                              <button onClick={() => setConfirmDeleteId(null)} className="px-3 py-1.5 border border-border text-foreground rounded-lg text-xs">Cancel</button>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <div className="text-sm font-bold text-foreground flex items-center gap-2">
+                              <span>{alloc.icon}</span> {e.name}
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              {e.date} · <span className="uppercase tracking-wider opacity-70 text-[10px]">{e.allocId}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="text-base font-bold font-mono" style={{ color: alloc.color }}>
+                              -{formatMoney(e.amount)}
+                            </div>
+                            <button
+                              onClick={() => setConfirmDeleteId(e.id)}
+                              className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                              title="Delete entry"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </>
       )}
 

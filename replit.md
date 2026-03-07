@@ -61,6 +61,11 @@ A personal finance and budgeting web app designed for iPhone & iPad, built with 
 - **Calendar improvements**: Payday marked in green, paid bills shown with checkmarks, legend
 - **Change password**: In Tools tab, secured with current password verification
 - **Delete account**: In Tools tab, requires typing "DELETE" to confirm
+- **Net worth snapshot**: Dashboard shows total assets minus total debt with checking balance front and center
+- **Expense search**: Filter expense history by name or category
+- **Inline delete confirmations**: Bills, goals, and expenses all ask "Yes/No" before deleting
+- **Toast notifications**: All actions show slide-in toasts (5 second auto-dismiss) instead of browser alerts
+- **iOS-style bottom nav**: Fixed tab bar at the bottom with icon + label for each tab, badge dot on Bills when due
 - Safe-to-spend, daily spend, calendar, advisor insights, debt countdown
 
 ## Workflow
