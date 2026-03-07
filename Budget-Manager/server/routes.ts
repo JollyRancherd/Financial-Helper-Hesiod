@@ -6,7 +6,6 @@ import { api } from "@shared/routes";
 import { authCredentialsSchema } from "@shared/schema";
 import { z } from "zod";
 import { registerUserAndSeed, requireAuth, toSafeUser, createToken, revokeToken } from "./auth";
-import { getAIResponse } from "./openai";
 
 function getUserId(req: Request) {
   return (req.user as Express.User | undefined)?.id;
@@ -208,40 +207,6 @@ export async function registerRoutes(
     if (isNaN(id)) return res.status(404).json({ message: "Invalid ID" });
     await storage.deleteGoal(getUserId(req)!, id);
     res.status(204).end();
-  });
-
-  app.post("/api/advisor/chat", requireAuth, async (req, res) => {
-    try {
-      const { messages, financialContext } = req.body;
-      const systemPrompt = `You are a friendly, practical personal financial advisor inside a budget management app. 
-You have full access to the user's real financial data shown below. Keep responses concise (2-4 sentences unless asked for more), warm, and actionable.
-
-User's financial snapshot:
-- Monthly income: ${financialContext.monthlyIncome}
-- Checking balance: ${financialContext.checkingBalance}
-- Debt remaining: ${financialContext.debtRemaining} (of ${financialContext.totalDebt} total)
-- Emergency fund: ${financialContext.emergencyFund} / ${financialContext.emergencyGoal} goal
-- ${financialContext.bigGoalName} fund: ${financialContext.bigGoalFund} / ${financialContext.bigGoalTarget} goal
-- Goals pool: ${financialContext.goalsPool}
-- Monthly leftover after bills & allocations: ${financialContext.monthlyLeftover}
-- Total monthly bills: ${financialContext.monthlyBills}
-- Bills due in 7 days: ${financialContext.billsDueSoon}
-- Current strategy: ${financialContext.phase}
-- Future goals: ${financialContext.goals}
-
-Be supportive, honest, and specific to their numbers.`;
-
-      const aiMessages = [
-        { role: "system", content: systemPrompt },
-        ...messages.filter((m: any) => m.role !== "system").slice(-10),
-      ];
-
-      const reply = await getAIResponse(aiMessages);
-      res.json({ reply });
-    } catch (err: any) {
-      console.error("AI advisor error:", err);
-      res.status(500).json({ reply: "I'm having trouble connecting right now. Please try again in a moment." });
-    }
   });
 
   return httpServer;
