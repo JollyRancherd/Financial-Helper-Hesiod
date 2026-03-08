@@ -3,6 +3,7 @@ import { formatMoney, getSafeToSpend, getDailySafeSpend, calcDaysUntil, getEnter
 import { useSettings, useUpdateSettings } from "@/hooks/use-settings";
 import { useExpenses, useCreateExpense } from "@/hooks/use-expenses";
 import { useBills } from "@/hooks/use-bills";
+import { useAccounts } from "@/hooks/use-accounts";
 import { Loader2, TriangleAlert, X, Wallet, TrendingUp, TrendingDown, Plus, BellRing, AlertCircle } from "lucide-react";
 
 const currentMonthKey = new Date().toISOString().slice(0, 7);
@@ -11,6 +12,7 @@ export function DashboardTab() {
   const { data: settings, isLoading: loadingSettings } = useSettings();
   const { data: expenses, isLoading: loadingExpenses } = useExpenses();
   const { data: bills, isLoading: loadingBills } = useBills();
+  const { data: accounts } = useAccounts();
   const updateSettings = useUpdateSettings();
 
   const createExpense = useCreateExpense();
@@ -233,6 +235,32 @@ export function DashboardTab() {
               <div className={`text-lg font-bold font-mono ${netWorth.debt > 0 ? 'text-destructive' : 'text-success'}`}>{netWorth.debt > 0 ? formatMoney(netWorth.debt) : "Debt free!"}</div>
               <div className="text-[10px] text-muted-foreground mt-0.5">Remaining to pay off</div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {accounts && accounts.length > 0 && (
+        <div className="glass-panel p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">My Accounts</span>
+            </div>
+            <span className={`text-sm font-bold font-mono ${accounts.reduce((s, a) => a.type === "credit" ? s - Number(a.balance) : s + Number(a.balance), 0) >= 0 ? "text-success" : "text-destructive"}`}>
+              {formatMoney(accounts.reduce((s, a) => a.type === "credit" ? s - Number(a.balance) : s + Number(a.balance), 0))} net
+            </span>
+          </div>
+          <div className="space-y-2">
+            {accounts.map(a => (
+              <div key={a.id} className="flex items-center justify-between py-1.5 border-b border-white/5 last:border-0">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-base">{a.icon}</span>
+                  <span className="text-sm text-foreground">{a.name}</span>
+                </div>
+                <span className={`text-sm font-mono font-bold ${a.type === "credit" ? "text-destructive" : "text-foreground"}`}>
+                  {a.type === "credit" ? "-" : ""}{formatMoney(a.balance)}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       )}

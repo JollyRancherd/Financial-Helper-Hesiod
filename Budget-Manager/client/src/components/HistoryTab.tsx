@@ -270,7 +270,27 @@ export function HistoryTab() {
                           Archived {new Date(snap.savedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                         </div>
                       </div>
-                      <div className="text-xl font-bold font-mono text-foreground">{formatMoney(snap.totalSpent)}</div>
+                      <div className="flex items-center gap-3">
+                        <div className="text-xl font-bold font-mono text-foreground">{formatMoney(snap.totalSpent)}</div>
+                        <button
+                          onClick={() => {
+                            const breakdown: Record<string, number> = JSON.parse(snap.breakdown || "{}");
+                            const rows = Object.entries(breakdown).map(([id, amount]) => {
+                              const alloc = allAllocs.find(a => a.id === id);
+                              return [snap.month, alloc?.name || id, Number(amount).toFixed(2)].join(",");
+                            });
+                            const csv = ["Month,Category,Amount", ...rows].join("\n");
+                            const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement("a");
+                            a.href = url; a.download = `history-${snap.month}.csv`; a.click();
+                            setTimeout(() => URL.revokeObjectURL(url), 1000);
+                          }}
+                          className="px-2.5 py-1 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors"
+                        >
+                          <Download className="w-3 h-3" /> CSV
+                        </button>
+                      </div>
                     </div>
                     {chartEntries.length > 0 && (
                       <ResponsiveContainer width="100%" height={140}>

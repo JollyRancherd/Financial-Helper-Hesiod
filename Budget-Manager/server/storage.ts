@@ -8,6 +8,7 @@ import {
   unlockedGoals,
   expenseTemplates,
   monthlySnapshots,
+  bankAccounts,
   type User,
   type Settings,
   type Expense,
@@ -15,6 +16,8 @@ import {
   type UnlockedGoal,
   type ExpenseTemplate,
   type MonthlySnapshot,
+  type BankAccount,
+  type InsertBankAccount,
   type UpdateSettingsRequest,
   type CreateExpenseRequest,
   type CreateRecurringBillRequest,
@@ -59,6 +62,11 @@ export interface IStorage {
 
   getMonthlySnapshots(userId: number): Promise<MonthlySnapshot[]>;
   saveMonthlySnapshot(userId: number, month: string, totalSpent: string, breakdown: string): Promise<MonthlySnapshot>;
+
+  getAccounts(userId: number): Promise<BankAccount[]>;
+  createAccount(userId: number, data: Omit<InsertBankAccount, "userId">): Promise<BankAccount>;
+  updateAccount(userId: number, id: number, updates: Partial<InsertBankAccount>): Promise<BankAccount | undefined>;
+  deleteAccount(userId: number, id: number): Promise<void>;
 }
 
 const DEFAULT_UNLOCKED_GOALS: { name: string; cost: string; priority: string; note: string; useProtected: boolean }[] = [];
@@ -234,6 +242,26 @@ export class DatabaseStorage implements IStorage {
       .values({ userId, month, totalSpent, breakdown, savedAt: new Date().toISOString() })
       .returning();
     return created;
+  }
+  async getAccounts(userId: number): Promise<BankAccount[]> {
+    return await db.select().from(bankAccounts).where(eq(bankAccounts.userId, userId));
+  }
+
+  async createAccount(userId: number, data: Omit<InsertBankAccount, "userId">): Promise<BankAccount> {
+    const [created] = await db.insert(bankAccounts).values({ ...data, userId }).returning();
+    return created;
+  }
+
+  async updateAccount(userId: number, id: number, updates: Partial<InsertBankAccount>): Promise<BankAccount | undefined> {
+    const [updated] = await db.update(bankAccounts)
+      .set(updates)
+      .where(and(eq(bankAccounts.id, id), eq(bankAccounts.userId, userId)))
+      .returning();
+    return updated;
+  }
+
+  async deleteAccount(userId: number, id: number): Promise<void> {
+    await db.delete(bankAccounts).where(and(eq(bankAccounts.id, id), eq(bankAccounts.userId, userId)));
   }
 }
 

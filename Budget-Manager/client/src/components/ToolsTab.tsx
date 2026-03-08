@@ -6,7 +6,10 @@ import { getLeftover, getEntertainmentUnused, formatMoney } from "@/lib/budget-u
 import { apiFetch } from "@/lib/api-fetch";
 import { api } from "@shared/routes";
 import { useToast } from "@/hooks/use-toast";
-import { RefreshCcw, Save, ShieldAlert, Banknote, KeyRound, UserX, AlertTriangle } from "lucide-react";
+import { RefreshCcw, Save, ShieldAlert, Banknote, KeyRound, UserX, AlertTriangle, Bell, BellOff, Building2, FileUp } from "lucide-react";
+import { AccountsSection } from "@/components/AccountsSection";
+import { CSVImportSection } from "@/components/CSVImportSection";
+import { requestNotificationPermission, getNotificationPermission, getNotificationPref, setNotificationPref, checkAndNotifyBills } from "@/lib/bill-notifications";
 
 export function ToolsTab() {
   const { data: settings } = useSettings();
@@ -19,6 +22,8 @@ export function ToolsTab() {
   const [savingsInput, setSavingsInput] = useState("0");
   const [rolloverInput, setRolloverInput] = useState("0");
   const [bigGoalNameInput, setBigGoalNameInput] = useState("Big Goal");
+  const [notifEnabled, setNotifEnabled] = useState(getNotificationPref);
+  const [notifPerm, setNotifPerm] = useState(getNotificationPermission);
 
   useEffect(() => {
     if (settings) {
@@ -27,6 +32,29 @@ export function ToolsTab() {
       setBigGoalNameInput((settings as any).bigGoalName || "Big Goal");
     }
   }, [settings]);
+
+  useEffect(() => {
+    if (notifEnabled && bills && bills.length > 0) checkAndNotifyBills(bills);
+  }, [notifEnabled, bills]);
+
+  const handleToggleNotifications = async () => {
+    if (!notifEnabled) {
+      const granted = await requestNotificationPermission();
+      setNotifPerm(getNotificationPermission());
+      if (granted) {
+        setNotifEnabled(true);
+        setNotificationPref(true);
+        if (bills) checkAndNotifyBills(bills);
+        toast({ title: "Bill reminders on", description: "You'll be notified when bills are due within 3 days." });
+      } else {
+        toast({ title: "Permission denied", description: "Enable notifications in your browser settings to use this feature.", variant: "destructive" });
+      }
+    } else {
+      setNotifEnabled(false);
+      setNotificationPref(false);
+      toast({ title: "Bill reminders off" });
+    }
+  };
 
   const [showPaydayFlow, setShowPaydayFlow] = useState(false);
   const [newBalance, setNewBalance] = useState("");
@@ -255,6 +283,53 @@ export function ToolsTab() {
         <button onClick={handleSavePools} disabled={updateSettings.isPending} className="px-6 py-3 bg-primary text-primary-foreground font-semibold rounded-xl hover:bg-primary/90 transition-colors flex items-center gap-2 shadow-lg shadow-primary/20 disabled:opacity-50">
           <Save className="w-4 h-4" /> {updateSettings.isPending ? "Saving..." : "Save settings"}
         </button>
+      </div>
+
+      <div className="glass-panel p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            {notifEnabled ? <Bell className="w-5 h-5 text-primary shrink-0 mt-0.5" /> : <BellOff className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />}
+            <div>
+              <h3 className="text-sm font-bold text-foreground">Bill Reminders</h3>
+              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                Get a browser notification when a bill is due within 3 days. Works even when the app is in the background (if your browser supports it).
+              </p>
+              {notifPerm === "unsupported" && (
+                <p className="text-xs text-muted-foreground/60 mt-1">Not supported in this browser.</p>
+              )}
+              {notifPerm === "denied" && (
+                <p className="text-xs text-destructive mt-1">Notifications blocked — enable them in browser settings.</p>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={handleToggleNotifications}
+            disabled={notifPerm === "unsupported" || notifPerm === "denied"}
+            className={`shrink-0 relative w-11 h-6 rounded-full border transition-colors ${notifEnabled ? "bg-primary border-primary" : "bg-border border-border"} disabled:opacity-40`}
+          >
+            <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${notifEnabled ? "translate-x-5" : "translate-x-0"}`} />
+          </button>
+        </div>
+      </div>
+
+      <div className="glass-panel p-6">
+        <div className="flex items-center gap-3 mb-5">
+          <Building2 className="w-5 h-5 text-primary shrink-0" />
+          <div>
+            <h3 className="text-sm font-bold text-foreground">Accounts & Balances</h3>
+          </div>
+        </div>
+        <AccountsSection />
+      </div>
+
+      <div className="glass-panel p-6">
+        <div className="flex items-center gap-3 mb-5">
+          <FileUp className="w-5 h-5 text-primary shrink-0" />
+          <div>
+            <h3 className="text-sm font-bold text-foreground">Bank CSV Import</h3>
+          </div>
+        </div>
+        <CSVImportSection />
       </div>
 
       <div className="glass-panel p-6">

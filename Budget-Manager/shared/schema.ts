@@ -84,6 +84,18 @@ export const monthlySnapshots = pgTable("monthly_snapshots", {
   savedAt: text("saved_at").notNull().default(""),
 });
 
+export const bankAccounts = pgTable("bank_accounts", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().default(1),
+  name: text("name").notNull(),
+  type: text("type").notNull().default("checking"),
+  balance: numeric("balance", { precision: 10, scale: 2 }).notNull().default("0.00"),
+  icon: text("icon").notNull().default("🏦"),
+  color: text("color").notNull().default("hsl(var(--primary))"),
+  sortOrder: integer("sort_order").notNull().default(0),
+});
+
+export const insertBankAccountSchema = createInsertSchema(bankAccounts).omit({ id: true, userId: true });
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, passwordHash: true, createdAt: true });
 export const insertSettingsSchema = createInsertSchema(settings).omit({ id: true, userId: true });
 export const insertExpenseSchema = createInsertSchema(expenses).omit({ id: true, userId: true });
@@ -116,6 +128,8 @@ export type ExpenseTemplate = typeof expenseTemplates.$inferSelect;
 export type InsertExpenseTemplate = z.infer<typeof insertExpenseTemplateSchema>;
 export type MonthlySnapshot = typeof monthlySnapshots.$inferSelect;
 export type InsertMonthlySnapshot = z.infer<typeof insertMonthlySnapshotSchema>;
+export type BankAccount = typeof bankAccounts.$inferSelect;
+export type InsertBankAccount = z.infer<typeof insertBankAccountSchema>;
 
 export type UpdateSettingsRequest = Partial<InsertSettings>;
 export type CreateExpenseRequest = InsertExpense;

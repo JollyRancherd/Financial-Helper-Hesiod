@@ -14,10 +14,12 @@ A personal finance and budgeting web app designed for iPhone & iPad, built with 
   - `pages/OnboardingPage.tsx` — New user setup questionnaire
   - `pages/Home.tsx` — Main app shell with tabs
   - `components/` — Tab components (Dashboard, Advisor, Budget, Bills, Goals, History, Log, Tools, Calendar)
-  - `hooks/` — use-auth, use-settings, use-bills, use-expenses, use-goals, use-templates
+  - `hooks/` — use-auth, use-settings, use-bills, use-expenses, use-goals, use-templates, use-accounts
   - `lib/api-fetch.ts` — Authenticated fetch utility (X-Auth-Token header)
   - `lib/budget-utils.ts` — Core calculation functions
   - `lib/constants.ts` — PHASE1_ALLOCS, PHASE2_ALLOCS, fallback values
+  - `lib/bill-notifications.ts` — Browser notification helpers for bill reminders
+  - `lib/csv-utils.ts` — CSV export builder + bank CSV parser
 - `Budget-Manager/server/` — Express backend (auth, routes, storage, db)
 - `Budget-Manager/shared/schema.ts` — Drizzle schema + Zod validators
 - `Budget-Manager/shared/routes.ts` — Typed API routes shared with frontend
@@ -35,6 +37,7 @@ A personal finance and budgeting web app designed for iPhone & iPad, built with 
 - `unlocked_goals` — future savings goals with `contributed` field for per-goal funding
 - `expense_templates` — saved quick-add shortcuts for common expenses
 - `monthly_snapshots` — archived spending history saved on monthly reset
+- `bank_accounts` — user-added accounts (checking, savings, credit cards, etc.) with balance and type
 
 ## Settings Schema Fields
 - `paycheck`, `checkingBalance`, `nextPayday`, `phase`
@@ -50,7 +53,10 @@ A personal finance and budgeting web app designed for iPhone & iPad, built with 
 - **Debt payoff countdown**: Calculates exact debt-free month based on monthly payment
 - **Mark bills as paid**: Tap circle on any bill to mark paid this month; resets on monthly reset
 - **Spending breakdown chart**: Recharts bar chart in History tab by category
-- **Export to CSV**: Download expenses as CSV from History tab
+- **Export to CSV**: Download current-cycle expenses or past monthly snapshots as CSV from History tab
+- **Bank account tracking**: Add checking, savings, credit cards, and investments in Tools tab; net balance shown on Dashboard
+- **Bill reminders (push notifications)**: Toggle in Tools tab; fires browser notifications for bills due within 3 days; pref stored in localStorage
+- **Bank CSV import**: Upload a bank statement CSV in Tools tab; auto-detects date/description/amount columns; preview with category assignment per row; bulk-imports as expenses
 - **Goals Pool gauge**: Green gauge showing how the pool fills toward total goals cost
 - **Sweep surplus button**: One tap adds monthly leftover + unused fun budget to Goals Pool
 - **Per-goal contributions**: Track how much of the pool is earmarked for each specific goal

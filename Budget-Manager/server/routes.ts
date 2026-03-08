@@ -246,5 +246,33 @@ export async function registerRoutes(
     res.json(snaps);
   });
 
+  app.get(api.accounts.list.path, async (req, res) => {
+    const accounts = await storage.getAccounts(getUserId(req)!);
+    res.json(accounts);
+  });
+
+  app.post(api.accounts.create.path, async (req, res) => {
+    try {
+      const input = api.accounts.create.input.parse(req.body);
+      const created = await storage.createAccount(getUserId(req)!, input);
+      res.status(201).json(created);
+    } catch (e: any) { res.status(400).json({ message: e.message }); }
+  });
+
+  app.put(api.accounts.update.path, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const input = api.accounts.update.input.parse(req.body);
+      const updated = await storage.updateAccount(getUserId(req)!, id, input);
+      if (!updated) return res.status(404).json({ message: "Account not found" });
+      res.json(updated);
+    } catch (e: any) { res.status(400).json({ message: e.message }); }
+  });
+
+  app.delete(api.accounts.delete.path, async (req, res) => {
+    await storage.deleteAccount(getUserId(req)!, parseInt(req.params.id));
+    res.status(204).send();
+  });
+
   return httpServer;
 }
