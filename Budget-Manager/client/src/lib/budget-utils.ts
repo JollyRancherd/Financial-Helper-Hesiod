@@ -6,7 +6,14 @@ export const formatMoney = (n: number | string | undefined | null): string => {
   return (num < 0 ? "-$" : "$") + Math.abs(num).toFixed(2);
 };
 
-export const getAllocs = (phase: number) => phase === 1 ? PHASE1_ALLOCS : PHASE2_ALLOCS;
+export const getAllocs = (phase: number, overridesJson?: string | null) => {
+  const base = (phase === 1 ? PHASE1_ALLOCS : PHASE2_ALLOCS).map(a => ({ ...a }));
+  if (!overridesJson) return base;
+  try {
+    const overrides = JSON.parse(overridesJson);
+    return base.map(a => overrides[a.id] !== undefined ? { ...a, recommended: Number(overrides[a.id]) } : a);
+  } catch { return base; }
+};
 
 export const normalizeBills = (bills?: RecurringBill[] | null) => {
   if (bills && bills.length > 0) return bills.filter(b => b.active !== false);

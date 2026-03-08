@@ -1,12 +1,14 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useSettings, useUpdateSettings } from "@/hooks/use-settings";
 import { useExpenses } from "@/hooks/use-expenses";
 import { useGoals, useCreateGoal, useUpdateGoal, useDeleteGoal } from "@/hooks/use-goals";
 import { useBills } from "@/hooks/use-bills";
-import { formatMoney, getProjectedGoalMoney, getEntertainmentUnused, getAffordability, getMonthsUntil, getLeftover } from "@/lib/budget-utils";
+import { formatMoney, getAllocs, getProjectedGoalMoney, getEntertainmentUnused, getAffordability, getMonthsUntil, getLeftover, getSpentByAlloc } from "@/lib/budget-utils";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Edit2, Trash2, TrendingUp, PiggyBank, CheckCircle2, Loader2 } from "lucide-react";
 import type { UnlockedGoal } from "@shared/schema";
+
+const PROTECTED_IDS = new Set(["emergency", "savings", "apartment"]);
 
 export function GoalsTab() {
   const { data: settings } = useSettings();
@@ -24,10 +26,27 @@ export function GoalsTab() {
   const [fundingGoalId, setFundingGoalId] = useState<number | null>(null);
   const [fundAmount, setFundAmount] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [showCategorySweep, setShowCategorySweep] = useState(false);
+  const [selectedSweepIds, setSelectedSweepIds] = useState<Set<string>>(new Set());
 
   const [formData, setFormData] = useState({
     name: "", cost: "", priority: "Medium", note: "", useProtected: false
   });
+
+  const phase = settings?.phase || 1;
+  const overridesJson = (settings as any)?.allocOverrides || "{}";
+  const allocs = getAllocs(phase, overridesJson);
+  const spent = getSpentByAlloc(expenses || []);
+
+  const sweepableCategories = useMemo(() => {
+    return allocs
+      .filter(a => !PROTECTED_IDS.has(a.id) && a.recommended > 0)
+      .map(a => {
+        const unspent = Math.max(0, a.recommended - (spent[a.id] || 0));
+        return { ...a, unspent };
+      })
+      .filter(a => a.unspent > 0.01);
+  }, [allocs, spent]);
 
   const projected = getProjectedGoalMoney(settings, bills);
   const unusedFun = getEntertainmentUnused(settings, expenses || []);
@@ -37,6 +56,12 @@ export function GoalsTab() {
   const poolPct = totalGoalsCost > 0 ? Math.min(100, (currentPool / totalGoalsCost) * 100) : 0;
   const poolNeeded = Math.max(0, totalGoalsCost - currentPool);
 
+  const categorySweepTotal = useMemo(() => {
+    return sweepableCategories
+      .filter(a => selectedSweepIds.has(a.id))
+      .reduce((s, a) => s + a.unspent, 0);
+  }, [sweepableCategories, selectedSweepIds]);
+
   const handleSweepSurplus = () => {
     const sweepAmount = monthlySurplus + unusedFun;
     if (sweepAmount <= 0) {
@@ -45,6 +70,20 @@ export function GoalsTab() {
     }
     updateSettings.mutate({ rolloverPool: (currentPool + sweepAmount).toFixed(2) }, {
       onSuccess: () => toast({ title: "Surplus swept!", description: `${formatMoney(sweepAmount)} added to your Goals Pool.` })
+    });
+  };
+
+  const handleCategorySweep = () => {
+    if (categorySweepTotal <= 0) {
+      toast({ title: "Nothing selected", description: "Select at least one category with unspent funds.", variant: "destructive" });
+      return;
+    }
+    updateSettings.mutate({ rolloverPool: (currentPool + categorySweepTotal).toFixed(2) }, {
+      onSuccess: () => {
+        toast({ title: "Funds swept!", description: `${formatMoney(categorySweepTotal)} swept from selected categories into your Goals Pool.` });
+        setSelectedSweepIds(new Set());
+        setShowCategorySweep(false);
+      }
     });
   };
 
@@ -124,13 +163,70 @@ export function GoalsTab() {
           </div>
         </div>
 
-        <button
-          onClick={handleSweepSurplus}
-          className="w-full py-3 bg-success text-success-foreground font-semibold rounded-xl hover:bg-success/90 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-success/20"
-        >
-          <TrendingUp className="w-4 h-4" />
-          Sweep this month's surplus into pool ({formatMoney(monthlySurplus + unusedFun)})
-        </button>
+        <div className="space-y-3">
+          <button
+            onClick={handleSweepSurplus}
+            className="w-full py-3 bg-success text-success-foreground font-semibold rounded-xl hover:bg-success/90 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-success/20"
+          >
+            <TrendingUp className="w-4 h-4" />
+            Sweep this month's surplus ({formatMoney(monthlySurplus + unusedFun)})
+          </button>
+
+          <button
+            onClick={() => setShowCategorySweep(v => !v)}
+            className="w-full py-3 bg-primary/10 text-primary border border-primary/30 font-semibold rounded-xl hover:bg-primary/20 transition-colors flex items-center justify-center gap-2 text-sm"
+          >
+            <Plus className="w-4 h-4" />
+            {showCategorySweep ? "Hide category sweep" : "Sweep unspent category money"}
+          </button>
+
+          {showCategorySweep && (
+            <div className="p-4 bg-white/5 border border-white/10 rounded-xl space-y-4">
+              <p className="text-xs text-muted-foreground">
+                Choose which budget categories have unspent money you'd like to move into your Goals Pool.
+                Emergency fund, savings, and savings fund are kept protected and excluded.
+              </p>
+              {sweepableCategories.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic text-center py-2">No unspent money in eligible categories right now.</p>
+              ) : (
+                <div className="space-y-2">
+                  {sweepableCategories.map(a => (
+                    <label key={a.id} className="flex items-center justify-between gap-3 p-3 bg-background/50 rounded-xl border border-border/30 cursor-pointer hover:border-primary/40 transition-colors">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedSweepIds.has(a.id)}
+                          onChange={e => {
+                            const next = new Set(selectedSweepIds);
+                            if (e.target.checked) next.add(a.id); else next.delete(a.id);
+                            setSelectedSweepIds(next);
+                          }}
+                          className="accent-primary w-4 h-4"
+                        />
+                        <span>{a.icon}</span>
+                        <span className="text-sm text-foreground">{a.name}</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-mono font-bold text-success">+{formatMoney(a.unspent)}</div>
+                        <div className="text-[10px] text-muted-foreground">unspent</div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              )}
+              {sweepableCategories.length > 0 && (
+                <button
+                  onClick={handleCategorySweep}
+                  disabled={categorySweepTotal <= 0 || updateSettings.isPending}
+                  className="w-full py-2.5 bg-success text-success-foreground font-semibold rounded-xl text-sm flex items-center justify-center gap-2 disabled:opacity-40 transition-opacity"
+                >
+                  {updateSettings.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <TrendingUp className="w-4 h-4" />}
+                  Sweep {categorySweepTotal > 0 ? formatMoney(categorySweepTotal) : "selected"} to pool
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="glass-panel p-6">

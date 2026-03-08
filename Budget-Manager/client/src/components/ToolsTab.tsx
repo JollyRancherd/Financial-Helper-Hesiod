@@ -126,12 +126,17 @@ export function ToolsTab() {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
       <div className="glass-panel p-6 border-success/20 bg-success/5">
-        <div className="flex items-center gap-3 mb-4">
+        <div className="flex items-center gap-3 mb-2">
           <Banknote className="w-5 h-5 text-success" />
           <div>
             <h3 className="text-sm font-bold text-success">New Paycheck</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">Update your balance, sweep surplus, and start a fresh month</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Use this every time you get paid</p>
           </div>
+        </div>
+        <div className="mb-4 p-3 bg-success/10 border border-success/20 rounded-xl">
+          <p className="text-xs text-foreground/80 leading-relaxed">
+            Run this at the <strong className="text-foreground">start of every pay cycle</strong>. It lets you update your checking balance, set your next payday, move any leftover money into your Goals Pool, and clear your expense log — all in one step. This is your regular routine each payday.
+          </p>
         </div>
 
         {!showPaydayFlow ? (
@@ -183,9 +188,14 @@ export function ToolsTab() {
       </div>
 
       <div className="glass-panel p-6">
-        <div className="mb-5">
-          <h3 className="text-sm font-bold text-foreground">Tools</h3>
-          <p className="text-xs text-muted-foreground mt-1">Housekeeping and data management</p>
+        <div className="mb-3">
+          <h3 className="text-sm font-bold text-foreground">Manual Reset</h3>
+          <p className="text-xs text-muted-foreground mt-1">For corrections only — not your regular payday routine</p>
+        </div>
+        <div className="mb-4 p-3 bg-destructive/5 border border-destructive/15 rounded-xl">
+          <p className="text-xs text-foreground/70 leading-relaxed">
+            Use this <strong className="text-foreground">only if something went wrong</strong> — for example, you need to clear expenses without updating your balance or setting a new payday. Unlike New Paycheck, this does <strong className="text-foreground">not</strong> update your checking balance, does <strong className="text-foreground">not</strong> move surplus into the Goals Pool, and does <strong className="text-foreground">not</strong> advance your pay cycle.
+          </p>
         </div>
         {showResetConfirm ? (
           <div className="p-4 bg-destructive/10 border border-destructive/30 rounded-xl space-y-3">
