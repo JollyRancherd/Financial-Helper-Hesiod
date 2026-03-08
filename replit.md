@@ -38,6 +38,7 @@ A personal finance and budgeting web app designed for iPhone & iPad, built with 
 - `expense_templates` — saved quick-add shortcuts for common expenses
 - `monthly_snapshots` — archived spending history saved on monthly reset
 - `bank_accounts` — user-added accounts (checking, savings, credit cards, etc.) with balance and type
+- `unlocked_goals` new fields: `targetDate` (text, nullable), `locked` (boolean)
 
 ## Settings Schema Fields
 - `paycheck`, `checkingBalance`, `nextPayday`, `phase`
@@ -57,6 +58,12 @@ A personal finance and budgeting web app designed for iPhone & iPad, built with 
 - **Bank account tracking**: Add checking, savings, credit cards, and investments in Tools tab; net balance shown on Dashboard
 - **Bill reminders (push notifications)**: Toggle in Tools tab; fires browser notifications for bills due within 3 days; pref stored in localStorage
 - **Bank CSV import**: Upload a bank statement CSV in Tools tab; auto-detects date/description/amount columns; preview with category assignment per row; bulk-imports as expenses
+- **Monthly Surplus Tracker**: Dashboard "Month Summary" card shows budgeted vs actual spending, surplus/deficit, and which top-priority goal the surplus redirects to with progress bar
+- **Goal Priority System**: Goals sorted High → Medium → Low; colored priority badges; "Next up" badge on highest-priority unfunded goal; surplus sweep shows redirect target
+- **Auto-allocate**: One-tap button distributes Goals Pool balance to goals in priority order, skipping locked goals
+- **Smart Deadline Planning**: Optional target date per goal; shows required monthly saving, months left, and on-track/behind-schedule indicator
+- **Goal Locking**: Lock toggle per goal (prevents auto-allocation); locked goals show lock icon badge; lock state persists in DB
+- **Financial Health Score**: Already live in Advisor tab (0-100 score, A-F grade, 4 dimensions: bills paid, emergency fund, debt progress, budget health)
 - **Goals Pool gauge**: Green gauge showing how the pool fills toward total goals cost
 - **Sweep surplus button**: One tap adds monthly leftover + unused fun budget to Goals Pool
 - **Per-goal contributions**: Track how much of the pool is earmarked for each specific goal

@@ -3,9 +3,9 @@ import { useSettings, useUpdateSettings } from "@/hooks/use-settings";
 import { useExpenses } from "@/hooks/use-expenses";
 import { useGoals, useCreateGoal, useUpdateGoal, useDeleteGoal } from "@/hooks/use-goals";
 import { useBills } from "@/hooks/use-bills";
-import { formatMoney, getAllocs, getProjectedGoalMoney, getEntertainmentUnused, getAffordability, getMonthsUntil, getLeftover, getSpentByAlloc } from "@/lib/budget-utils";
+import { formatMoney, getAllocs, getProjectedGoalMoney, getEntertainmentUnused, getAffordability, getMonthsUntil, getLeftover, getSpentByAlloc, calcDeadlinePlanning, PRIORITY_ORDER, getMonthlyGoalPace } from "@/lib/budget-utils";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Edit2, Trash2, TrendingUp, PiggyBank, CheckCircle2, Loader2 } from "lucide-react";
+import { Plus, Edit2, Trash2, TrendingUp, PiggyBank, CheckCircle2, Loader2, Lock, Unlock, Target, Calendar } from "lucide-react";
 import type { UnlockedGoal } from "@shared/schema";
 
 const PROTECTED_IDS = new Set(["emergency", "savings", "apartment"]);
@@ -30,7 +30,7 @@ export function GoalsTab() {
   const [selectedSweepIds, setSelectedSweepIds] = useState<Set<string>>(new Set());
 
   const [formData, setFormData] = useState({
-    name: "", cost: "", priority: "Medium", note: "", useProtected: false
+    name: "", cost: "", priority: "Medium", note: "", useProtected: false, targetDate: "", locked: false
   });
 
   const phase = settings?.phase || 1;
@@ -38,6 +38,16 @@ export function GoalsTab() {
   const namesJson = (settings as any)?.allocNames || "{}";
   const allocs = getAllocs(phase, overridesJson, namesJson);
   const spent = getSpentByAlloc(expenses || []);
+  const monthlyPace = getMonthlyGoalPace(settings, expenses || [], bills);
+
+  const sortedGoals = useMemo(() =>
+    [...(goals || [])].sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 1) - (PRIORITY_ORDER[b.priority] ?? 1)),
+    [goals]
+  );
+  const topPriorityGoal = useMemo(() =>
+    sortedGoals.find(g => !g.locked && Number(g.contributed || 0) < Number(g.cost)),
+    [sortedGoals]
+  );
 
   const sweepableCategories = useMemo(() => {
     return allocs
@@ -113,21 +123,49 @@ export function GoalsTab() {
   const openForm = (goal?: UnlockedGoal) => {
     if (goal) {
       setEditingGoal(goal);
-      setFormData({ name: goal.name, cost: Number(goal.cost).toString(), priority: goal.priority, note: goal.note || "", useProtected: goal.useProtected });
+      setFormData({ name: goal.name, cost: Number(goal.cost).toString(), priority: goal.priority, note: goal.note || "", useProtected: goal.useProtected, targetDate: (goal as any).targetDate || "", locked: (goal as any).locked ?? false });
     } else {
       setEditingGoal(null);
-      setFormData({ name: "", cost: "", priority: "Medium", note: "", useProtected: false });
+      setFormData({ name: "", cost: "", priority: "Medium", note: "", useProtected: false, targetDate: "", locked: false });
     }
     setIsFormOpen(true);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const payload = { name: formData.name, cost: parseFloat(formData.cost).toFixed(2), priority: formData.priority, note: formData.note, useProtected: formData.useProtected };
+    const payload = { name: formData.name, cost: parseFloat(formData.cost).toFixed(2), priority: formData.priority, note: formData.note, useProtected: formData.useProtected, targetDate: formData.targetDate || null, locked: formData.locked };
     if (editingGoal) {
-      updateGoal.mutate({ id: editingGoal.id, ...payload }, { onSuccess: () => setIsFormOpen(false) });
+      updateGoal.mutate({ id: editingGoal.id, ...payload } as any, { onSuccess: () => setIsFormOpen(false) });
     } else {
       createGoal.mutate(payload as any, { onSuccess: () => setIsFormOpen(false) });
+    }
+  };
+
+  const handleAutoAllocate = async () => {
+    if (currentPool <= 0) {
+      toast({ title: "Pool is empty", description: "Sweep some surplus into your Goals Pool first.", variant: "destructive" });
+      return;
+    }
+    let remaining = currentPool;
+    let totalAllocated = 0;
+    const allocatedGoals: string[] = [];
+    for (const goal of sortedGoals) {
+      if (remaining <= 0.01) break;
+      if ((goal as any).locked) continue;
+      const contributed = Number((goal as any).contributed || 0);
+      const needed = Math.max(0, Number(goal.cost) - contributed);
+      if (needed <= 0) continue;
+      const allocate = Math.min(remaining, needed);
+      await new Promise<void>(r => updateGoal.mutate({ id: goal.id, contributed: (contributed + allocate).toFixed(2) } as any, { onSuccess: () => r(), onError: () => r() }));
+      remaining -= allocate;
+      totalAllocated += allocate;
+      allocatedGoals.push(goal.name);
+    }
+    if (totalAllocated > 0) {
+      await new Promise<void>(r => updateSettings.mutate({ rolloverPool: remaining.toFixed(2) }, { onSuccess: () => r() }));
+      toast({ title: "Auto-allocated!", description: `${formatMoney(totalAllocated)} distributed to: ${allocatedGoals.join(", ")}.` });
+    } else {
+      toast({ title: "All goals funded", description: "No unfunded goals to allocate to.", variant: "destructive" });
     }
   };
 
@@ -165,13 +203,32 @@ export function GoalsTab() {
         </div>
 
         <div className="space-y-3">
-          <button
-            onClick={handleSweepSurplus}
-            className="w-full py-3 bg-success text-success-foreground font-semibold rounded-xl hover:bg-success/90 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-success/20"
-          >
-            <TrendingUp className="w-4 h-4" />
-            Sweep this month's surplus ({formatMoney(monthlySurplus + unusedFun)})
-          </button>
+          <div>
+            <button
+              onClick={handleSweepSurplus}
+              className="w-full py-3 bg-success text-success-foreground font-semibold rounded-xl hover:bg-success/90 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-success/20"
+            >
+              <TrendingUp className="w-4 h-4" />
+              Sweep this month's surplus ({formatMoney(monthlySurplus + unusedFun)})
+            </button>
+            {topPriorityGoal && (monthlySurplus + unusedFun) > 0 && (
+              <div className="flex items-center gap-1.5 mt-1.5 px-1 text-xs text-muted-foreground">
+                <Target className="w-3 h-3 text-success" />
+                <span>Auto-redirect to pool → will go to <strong className="text-foreground">{topPriorityGoal.name}</strong> when you allocate</span>
+              </div>
+            )}
+          </div>
+
+          {currentPool > 0 && (
+            <button
+              onClick={handleAutoAllocate}
+              disabled={updateGoal.isPending || updateSettings.isPending}
+              className="w-full py-3 bg-primary text-primary-foreground font-semibold rounded-xl hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-primary/20 disabled:opacity-50"
+            >
+              {(updateGoal.isPending || updateSettings.isPending) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Target className="w-4 h-4" />}
+              Auto-allocate pool ({formatMoney(currentPool)}) to goals by priority
+            </button>
+          )}
 
           <button
             onClick={() => setShowCategorySweep(v => !v)}
@@ -281,11 +338,24 @@ export function GoalsTab() {
                 <label className="text-xs text-muted-foreground block mb-1">Note (Optional)</label>
                 <input type="text" value={formData.note} onChange={e => setFormData({ ...formData, note: e.target.value })} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:border-primary outline-none" />
               </div>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1 flex items-center gap-1"><Calendar className="w-3 h-3" /> Target Date (Optional)</label>
+                <input type="month" value={formData.targetDate} onChange={e => setFormData({ ...formData, targetDate: e.target.value })} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:border-primary outline-none" />
+              </div>
             </div>
-            <label className="flex items-center gap-2 mt-2 cursor-pointer p-3 bg-white/5 rounded-lg border border-white/10">
-              <input type="checkbox" checked={formData.useProtected} onChange={e => setFormData({ ...formData, useProtected: e.target.checked })} className="accent-primary w-4 h-4" />
-              <span className="text-sm text-foreground">Count protected money (Big Goal fund + Savings) towards this goal</span>
-            </label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 cursor-pointer p-3 bg-white/5 rounded-lg border border-white/10 flex-1">
+                <input type="checkbox" checked={formData.useProtected} onChange={e => setFormData({ ...formData, useProtected: e.target.checked })} className="accent-primary w-4 h-4" />
+                <span className="text-sm text-foreground">Count protected money toward this goal</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer p-3 bg-white/5 rounded-lg border border-white/10">
+                <input type="checkbox" checked={formData.locked} onChange={e => setFormData({ ...formData, locked: e.target.checked })} className="accent-primary w-4 h-4" />
+                <div>
+                  <div className="text-sm text-foreground flex items-center gap-1"><Lock className="w-3 h-3" /> Locked</div>
+                  <div className="text-[10px] text-muted-foreground">Skip auto-allocate</div>
+                </div>
+              </label>
+            </div>
             <div className="flex gap-3 pt-2">
               <button type="submit" disabled={createGoal.isPending || updateGoal.isPending} className="px-5 py-2 bg-primary text-primary-foreground font-bold rounded-lg disabled:opacity-50 flex items-center gap-2">
                 {(createGoal.isPending || updateGoal.isPending) && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -298,42 +368,73 @@ export function GoalsTab() {
       )}
 
       <div className="space-y-4">
-        {goals?.length === 0 && (
+        {sortedGoals.length === 0 && (
           <div className="glass-panel p-8 text-center">
             <div className="text-4xl mb-3">🎯</div>
             <div className="text-lg font-semibold text-foreground mb-1">No goals yet</div>
             <div className="text-sm text-muted-foreground">Tap "Add Goal" above to set your first savings target.</div>
           </div>
         )}
-        {goals?.map(g => {
+        {sortedGoals.map(g => {
           const info = getAffordability(g, settings, bills);
           const months = getMonthsUntil(Number(g.cost), settings, expenses || [], bills);
           const contributed = Number((g as any).contributed || 0);
           const goalCost = Number(g.cost);
           const contributedPct = goalCost > 0 ? Math.min(100, (contributed / goalCost) * 100) : 0;
           const isFullyFunded = contributed >= goalCost && goalCost > 0;
+          const isLocked = (g as any).locked;
+          const targetDate = (g as any).targetDate;
+          const deadlinePlan = targetDate ? calcDeadlinePlanning(goalCost, contributed, targetDate, monthlyPace) : null;
+          const isTopGoal = topPriorityGoal?.id === g.id;
 
           let label = "Not safe yet", statusColorClass = "text-destructive", statusBg = "bg-destructive/15 border-destructive/30";
           if (isFullyFunded) { label = "Fully Funded ✓"; statusColorClass = "text-success"; statusBg = "bg-success/20 border-success/40"; }
           else if (info.level === "green") { label = "Unlocked"; statusColorClass = "text-success"; statusBg = "bg-success/15 border-success/30"; }
           else if (info.level === "yellow") { label = "Close"; statusColorClass = "text-warning"; statusBg = "bg-warning/15 border-warning/30"; }
 
+          const priorityBadgeClass = g.priority === "High" ? "text-red-400 bg-red-400/10 border-red-400/30" : g.priority === "Medium" ? "text-amber-400 bg-amber-400/10 border-amber-400/30" : "text-blue-400 bg-blue-400/10 border-blue-400/30";
           const isFunding = fundingGoalId === g.id;
 
           return (
             <div key={g.id} className={`glass-panel p-6 border ${statusBg}`}>
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <div className="text-lg font-bold text-foreground flex items-center gap-2">
+              <div className="flex justify-between items-start mb-3">
+                <div className="flex-1 min-w-0">
+                  <div className="text-lg font-bold text-foreground flex items-center gap-2 flex-wrap">
+                    {isTopGoal && !isFullyFunded && <span className="text-[10px] px-1.5 py-0.5 bg-success/20 text-success border border-success/30 rounded-full font-semibold uppercase tracking-wide shrink-0">Next up</span>}
                     {g.name}
-                    {isFullyFunded && <CheckCircle2 className="w-5 h-5 text-success" />}
+                    {isFullyFunded && <CheckCircle2 className="w-5 h-5 text-success shrink-0" />}
                   </div>
-                  <div className="text-xs text-muted-foreground mt-1">{g.note || "No note"} · Priority: {g.priority}</div>
+                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold uppercase tracking-wide ${priorityBadgeClass}`}>{g.priority}</span>
+                    {isLocked && <span className="text-[10px] px-2 py-0.5 rounded-full border font-semibold text-muted-foreground bg-white/5 border-white/10 flex items-center gap-0.5"><Lock className="w-2.5 h-2.5" /> Locked</span>}
+                    {targetDate && <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Calendar className="w-2.5 h-2.5" /> {new Date(targetDate + "-01T12:00:00").toLocaleDateString("en-US", { month: "short", year: "numeric" })}</span>}
+                    {g.note && <span className="text-[10px] text-muted-foreground/70 italic">{g.note}</span>}
+                  </div>
                 </div>
-                <div className={`px-3 py-1 rounded-full text-xs font-bold border bg-background/50 ${statusColorClass} ${statusBg.split(' ')[1]}`}>
-                  {label}
+                <div className="flex items-center gap-2 shrink-0">
+                  <button onClick={() => updateGoal.mutate({ id: g.id, locked: !isLocked } as any)} className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-white/10 rounded-lg transition-colors" title={isLocked ? "Unlock" : "Lock"}>
+                    {isLocked ? <Lock className="w-3.5 h-3.5 text-warning" /> : <Unlock className="w-3.5 h-3.5" />}
+                  </button>
+                  <div className={`px-3 py-1 rounded-full text-xs font-bold border bg-background/50 ${statusColorClass} ${statusBg.split(' ')[1]}`}>{label}</div>
                 </div>
               </div>
+
+              {deadlinePlan && !isFullyFunded && (
+                <div className={`mb-3 p-3 rounded-xl border text-xs ${deadlinePlan.isAhead ? "bg-success/8 border-success/20" : "bg-destructive/8 border-destructive/20"}`}>
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <span className={`font-bold ${deadlinePlan.isAhead ? "text-success" : "text-destructive"}`}>
+                      {deadlinePlan.isAhead ? "🟢 Ahead of schedule" : "🔴 Behind schedule"}
+                    </span>
+                    <span className="text-muted-foreground font-mono">{deadlinePlan.monthsLeft} months left</span>
+                  </div>
+                  <div className="mt-1 text-muted-foreground">
+                    {deadlinePlan.isAhead
+                      ? <>Saving {formatMoney(monthlyPace)}/mo · need {formatMoney(deadlinePlan.required)}/mo</>
+                      : <>Need {formatMoney(deadlinePlan.required)}/mo · saving {formatMoney(monthlyPace)}/mo · <span className="text-destructive">+{formatMoney(deadlinePlan.deficit)}/mo needed</span></>
+                    }
+                  </div>
+                </div>
+              )}
 
               <div className="mb-4">
                 <div className="flex justify-between text-xs text-muted-foreground mb-1">

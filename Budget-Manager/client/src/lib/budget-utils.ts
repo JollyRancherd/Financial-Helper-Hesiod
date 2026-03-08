@@ -150,6 +150,24 @@ export const getMonthsUntil = (cost: number, settings: Settings | null | undefin
   return Math.ceil(Math.max(0, cost - getProjectedGoalMoney(settings, bills)) / pace);
 };
 
+export const calcDeadlinePlanning = (
+  cost: number,
+  contributed: number,
+  targetDateStr: string,
+  monthlyPace: number
+): { monthsLeft: number; required: number; isAhead: boolean; deficit: number } | null => {
+  const target = new Date(targetDateStr + "T12:00:00");
+  const now = new Date();
+  const monthsLeft = (target.getFullYear() - now.getFullYear()) * 12 + (target.getMonth() - now.getMonth());
+  if (monthsLeft <= 0) return null;
+  const remaining = Math.max(0, cost - contributed);
+  if (remaining <= 0) return { monthsLeft, required: 0, isAhead: true, deficit: 0 };
+  const required = remaining / monthsLeft;
+  return { monthsLeft, required, isAhead: monthlyPace >= required, deficit: Math.max(0, required - monthlyPace) };
+};
+
+export const PRIORITY_ORDER: Record<string, number> = { High: 0, Medium: 1, Low: 2 };
+
 export const getStatusData = (settings: Settings | null | undefined, bills?: RecurringBill[] | null) => {
   const left = getLeftover(settings, bills);
   if (left < 0) return { text: "Over Budget", color: "text-destructive", bg: "bg-destructive/15 border-destructive/30" };

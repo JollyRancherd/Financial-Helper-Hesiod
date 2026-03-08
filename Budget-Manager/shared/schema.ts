@@ -64,6 +64,8 @@ export const unlockedGoals = pgTable("unlocked_goals", {
   note: text("note"),
   useProtected: boolean("use_protected").default(false).notNull(),
   contributed: numeric("contributed", { precision: 10, scale: 2 }).notNull().default("0.00"),
+  targetDate: text("target_date"),
+  locked: boolean("locked").default(false).notNull(),
 });
 
 export const expenseTemplates = pgTable("expense_templates", {

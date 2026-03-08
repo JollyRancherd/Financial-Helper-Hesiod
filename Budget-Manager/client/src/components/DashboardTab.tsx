@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from "react";
-import { formatMoney, getSafeToSpend, getDailySafeSpend, calcDaysUntil, getEntertainmentUnused, getMonthlyGoalPace, getReservedMoney, getSpentThisMonth, getDebtRemaining, getAllocs, getSpentByAlloc } from "@/lib/budget-utils";
+import { formatMoney, getSafeToSpend, getDailySafeSpend, calcDaysUntil, getEntertainmentUnused, getMonthlyGoalPace, getReservedMoney, getSpentThisMonth, getDebtRemaining, getAllocs, getSpentByAlloc, PRIORITY_ORDER } from "@/lib/budget-utils";
 import { useSettings, useUpdateSettings } from "@/hooks/use-settings";
 import { useExpenses, useCreateExpense } from "@/hooks/use-expenses";
 import { useBills } from "@/hooks/use-bills";
 import { useAccounts } from "@/hooks/use-accounts";
+import { useGoals } from "@/hooks/use-goals";
 import { Loader2, TriangleAlert, X, Wallet, TrendingUp, TrendingDown, Plus, BellRing, AlertCircle } from "lucide-react";
 
 const currentMonthKey = new Date().toISOString().slice(0, 7);
@@ -13,6 +14,7 @@ export function DashboardTab() {
   const { data: expenses, isLoading: loadingExpenses } = useExpenses();
   const { data: bills, isLoading: loadingBills } = useBills();
   const { data: accounts } = useAccounts();
+  const { data: goals } = useGoals();
   const updateSettings = useUpdateSettings();
 
   const createExpense = useCreateExpense();
@@ -71,6 +73,15 @@ export function DashboardTab() {
   }, [settings]);
 
   const allocs = useMemo(() => getAllocs(settings?.phase || 1, (settings as any)?.allocOverrides, (settings as any)?.allocNames), [settings?.phase, (settings as any)?.allocOverrides, (settings as any)?.allocNames]);
+
+  const surplusTracker = useMemo(() => {
+    if (!settings || !expenses) return null;
+    const budgeted = allocs.filter(a => a.recommended > 0).reduce((s, a) => s + a.recommended, 0);
+    const actual = getSpentThisMonth(expenses);
+    const surplus = budgeted - actual;
+    const topGoal = [...(goals || [])].sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 1) - (PRIORITY_ORDER[b.priority] ?? 1)).find(g => !(g as any).locked && Number((g as any).contributed || 0) < Number(g.cost));
+    return { budgeted, actual, surplus, topGoal };
+  }, [settings, allocs, expenses, goals]);
 
   const qaAllocIdEffective = qaAllocId || allocs.filter(a => a.recommended > 0)[0]?.id || "";
 
@@ -236,6 +247,52 @@ export function DashboardTab() {
               <div className="text-[10px] text-muted-foreground mt-0.5">Remaining to pay off</div>
             </div>
           </div>
+        </div>
+      )}
+
+      {surplusTracker && (
+        <div className="glass-panel p-6">
+          <h3 className="text-sm font-bold text-foreground mb-4">Month Summary</h3>
+          <div className="space-y-2 mb-4">
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-muted-foreground">Budgeted spending</span>
+              <span className="font-mono font-semibold">{formatMoney(surplusTracker.budgeted)}</span>
+            </div>
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-muted-foreground">Actual spending</span>
+              <span className="font-mono font-semibold">{formatMoney(surplusTracker.actual)}</span>
+            </div>
+            <div className="pt-2 border-t border-border/30 flex justify-between items-center">
+              <span className={`text-sm font-bold ${surplusTracker.surplus >= 0 ? "text-success" : "text-destructive"}`}>
+                {surplusTracker.surplus >= 0 ? "Surplus" : "Deficit"}
+              </span>
+              <span className={`text-lg font-bold font-mono ${surplusTracker.surplus >= 0 ? "text-success" : "text-destructive"}`}>
+                {surplusTracker.surplus >= 0 ? "+" : ""}{formatMoney(surplusTracker.surplus)}
+              </span>
+            </div>
+          </div>
+          {surplusTracker.topGoal && surplusTracker.surplus > 0 && (
+            <div className="p-3 bg-success/8 border border-success/20 rounded-xl">
+              <div className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+                <TrendingUp className="w-3 h-3 text-success" /> Auto-redirect to goals
+              </div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-semibold text-foreground">{surplusTracker.topGoal.name}</span>
+                <span className="text-xs font-mono font-bold text-success">+{formatMoney(surplusTracker.surplus)}</span>
+              </div>
+              <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
+                <div className="h-2 rounded-full bg-success transition-all duration-500" style={{ width: `${Math.min(100, (Number((surplusTracker.topGoal as any).contributed || 0) / Number(surplusTracker.topGoal.cost)) * 100)}%` }} />
+              </div>
+              <div className="text-[10px] text-muted-foreground mt-1 text-right">
+                {formatMoney((surplusTracker.topGoal as any).contributed || 0)} / {formatMoney(surplusTracker.topGoal.cost)} funded
+              </div>
+            </div>
+          )}
+          {surplusTracker.surplus < 0 && (
+            <div className="p-3 bg-destructive/8 border border-destructive/20 rounded-xl text-xs text-muted-foreground">
+              You've spent <span className="text-destructive font-semibold">{formatMoney(Math.abs(surplusTracker.surplus))} over</span> your budgeted amount this cycle. No surplus to redirect.
+            </div>
+          )}
         </div>
       )}
 
