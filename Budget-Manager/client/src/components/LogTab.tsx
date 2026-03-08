@@ -20,8 +20,12 @@ export function LogTab({ onComplete }: { onComplete: () => void }) {
   const [saveAsTemplate, setSaveAsTemplate] = useState(false);
 
   const allocs = useMemo(() => {
-    return getAllocs(settings?.phase || 1).filter(a => a.recommended > 0);
-  }, [settings?.phase]);
+    return getAllocs(
+      settings?.phase || 1,
+      (settings as any)?.allocOverrides,
+      (settings as any)?.allocNames
+    ).filter(a => a.recommended > 0);
+  }, [settings?.phase, (settings as any)?.allocOverrides, (settings as any)?.allocNames]);
 
   React.useEffect(() => {
     if (allocs.length > 0 && !allocId) {

@@ -29,6 +29,7 @@ export const settings = pgTable("settings", {
   apartmentGoal: numeric("apartment_goal", { precision: 10, scale: 2 }).notNull().default("3000.00"),
   bigGoalName: text("big_goal_name").notNull().default("Big Goal"),
   allocOverrides: text("alloc_overrides").notNull().default("{}"),
+  allocNames: text("alloc_names").notNull().default("{}"),
 });
 
 export const expenses = pgTable("expenses", {

@@ -13,45 +13,52 @@ export function BudgetTab() {
   const updateSettings = useUpdateSettings();
 
   const [editing, setEditing] = useState(false);
-  const [draftOverrides, setDraftOverrides] = useState<Record<string, string>>({});
+  const [draftAmounts, setDraftAmounts] = useState<Record<string, string>>({});
+  const [draftNames, setDraftNames] = useState<Record<string, string>>({});
 
   const phase = settings?.phase || 1;
   const overridesJson = (settings as any)?.allocOverrides || "{}";
-  const allocs = getAllocs(phase, overridesJson);
+  const namesJson = (settings as any)?.allocNames || "{}";
+  const allocs = getAllocs(phase, overridesJson, namesJson);
   const spent = getSpentByAlloc(expenses || []);
   const leftover = getLeftover(settings, bills);
 
   useEffect(() => {
     if (settings && editing) {
-      try {
-        const saved = JSON.parse(overridesJson);
-        const init: Record<string, string> = {};
-        getAllocs(phase).forEach(a => {
-          init[a.id] = (saved[a.id] !== undefined ? saved[a.id] : a.recommended).toString();
-        });
-        setDraftOverrides(init);
-      } catch {
-        const init: Record<string, string> = {};
-        getAllocs(phase).forEach(a => { init[a.id] = a.recommended.toString(); });
-        setDraftOverrides(init);
-      }
+      const savedAmounts: Record<string, number> = (() => { try { return JSON.parse(overridesJson); } catch { return {}; } })();
+      const savedNames: Record<string, string> = (() => { try { return JSON.parse(namesJson); } catch { return {}; } })();
+      const baseAllocs = getAllocs(phase);
+      const amounts: Record<string, string> = {};
+      const names: Record<string, string> = {};
+      baseAllocs.forEach(a => {
+        amounts[a.id] = (savedAmounts[a.id] !== undefined ? savedAmounts[a.id] : a.recommended).toString();
+        names[a.id] = savedNames[a.id] || a.name;
+      });
+      setDraftAmounts(amounts);
+      setDraftNames(names);
     }
   }, [editing, settings]);
 
   const handleSave = () => {
+    const baseAllocs = getAllocs(phase);
     const overrides: Record<string, number> = {};
-    const defaults = getAllocs(phase);
-    defaults.forEach(a => {
-      const v = parseFloat(draftOverrides[a.id] || "0");
+    const customNames: Record<string, string> = {};
+    baseAllocs.forEach(a => {
+      const v = parseFloat(draftAmounts[a.id] || "0");
       if (!isNaN(v) && v !== a.recommended) overrides[a.id] = v;
+      const customName = (draftNames[a.id] || "").trim();
+      if (customName && customName !== a.name) customNames[a.id] = customName;
     });
-    updateSettings.mutate({ allocOverrides: JSON.stringify(overrides) } as any, {
+    updateSettings.mutate({
+      allocOverrides: JSON.stringify(overrides),
+      allocNames: JSON.stringify(customNames),
+    } as any, {
       onSuccess: () => setEditing(false)
     });
   };
 
   const totalAllocs = editing
-    ? Object.values(draftOverrides).reduce((s, v) => s + (parseFloat(v) || 0), 0)
+    ? Object.values(draftAmounts).reduce((s, v) => s + (parseFloat(v) || 0), 0)
     : allocs.reduce((s, a) => s + a.recommended, 0);
 
   if (!settings) return null;
@@ -65,7 +72,7 @@ export function BudgetTab() {
               {phase === 1 ? "Debt Focus Budget" : "Growth Focus Budget"}
             </h3>
             <p className="text-xs text-muted-foreground mt-1">
-              {editing ? "Edit your spending targets for each category" : "See what is planned versus what you actually spent"}
+              {editing ? "Edit names and spending targets for each category" : "See what is planned versus what you actually spent"}
             </p>
           </div>
           {!editing ? (
@@ -73,7 +80,7 @@ export function BudgetTab() {
               onClick={() => setEditing(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/10 text-primary text-xs font-semibold border border-primary/20 hover:bg-primary/20 transition-colors"
             >
-              <Edit2 className="w-3.5 h-3.5" /> Edit Amounts
+              <Edit2 className="w-3.5 h-3.5" /> Edit
             </button>
           ) : (
             <div className="flex gap-2">
@@ -105,37 +112,60 @@ export function BudgetTab() {
           </div>
         </div>
 
+        {editing && (
+          <div className="mb-4 p-3 bg-primary/5 border border-primary/20 rounded-xl">
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Change the <strong className="text-foreground">name</strong> to whatever fits your life, and set your own <strong className="text-foreground">budget amount</strong>. Categories with $0 are hidden in the expense log but still tracked here.
+            </p>
+          </div>
+        )}
+
         <div className="space-y-4">
           {allocs.map((a) => {
             const current = spent[a.id] || 0;
-            const budgetAmt = editing ? (parseFloat(draftOverrides[a.id] || "0") || 0) : a.recommended;
+            const budgetAmt = editing ? (parseFloat(draftAmounts[a.id] || "0") || 0) : a.recommended;
             const pct = budgetAmt > 0 ? Math.min(100, (current / budgetAmt) * 100) : 0;
             const overBudget = current > budgetAmt && budgetAmt > 0;
 
             return (
               <div key={a.id} className={`p-4 rounded-xl border ${overBudget ? 'bg-destructive/5 border-destructive/20' : 'bg-white/5 border-white/5'}`}>
-                <div className="flex justify-between items-start mb-3">
-                  <div className="flex-1">
-                    <div className="text-sm font-bold text-foreground flex items-center gap-2">
-                      <span>{a.icon}</span> {a.name}
+                {editing ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-lg">{a.icon}</span>
+                      <input
+                        type="text"
+                        value={draftNames[a.id] ?? a.name}
+                        onChange={e => setDraftNames(prev => ({ ...prev, [a.id]: e.target.value }))}
+                        placeholder={a.name}
+                        className="flex-1 bg-background border border-border rounded-lg px-3 py-1.5 text-sm font-semibold focus:border-primary outline-none"
+                      />
                     </div>
-                    <div className="text-xs text-muted-foreground mt-1">{a.note}</div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground w-16 shrink-0">Budget $</span>
+                      <input
+                        type="number"
+                        step="1"
+                        min="0"
+                        value={draftAmounts[a.id] ?? a.recommended.toString()}
+                        onChange={e => setDraftAmounts(prev => ({ ...prev, [a.id]: e.target.value }))}
+                        className="flex-1 bg-background border border-border rounded-lg px-3 py-1.5 text-sm font-mono focus:border-primary outline-none"
+                      />
+                      <span className="text-xs text-muted-foreground w-20 text-right shrink-0">
+                        spent: {formatMoney(current)}
+                      </span>
+                    </div>
                   </div>
-                  <div className="text-right ml-4">
-                    {editing ? (
-                      <div className="relative w-28">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-mono text-sm">$</span>
-                        <input
-                          type="number"
-                          step="1"
-                          min="0"
-                          value={draftOverrides[a.id] ?? a.recommended.toString()}
-                          onChange={e => setDraftOverrides(prev => ({ ...prev, [a.id]: e.target.value }))}
-                          className="w-full bg-background border border-border rounded-lg pl-6 pr-2 py-1.5 text-sm font-mono text-right focus:border-primary outline-none"
-                        />
+                ) : (
+                  <>
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex-1">
+                        <div className="text-sm font-bold text-foreground flex items-center gap-2">
+                          <span>{a.icon}</span> {a.name}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">{a.note}</div>
                       </div>
-                    ) : (
-                      <>
+                      <div className="text-right ml-4">
                         <div className="text-base font-bold font-mono" style={{ color: a.recommended === 0 ? 'hsl(var(--muted-foreground))' : a.color }}>
                           {a.recommended === 0 ? "—" : formatMoney(a.recommended)}
                         </div>
@@ -144,20 +174,20 @@ export function BudgetTab() {
                             spent: {formatMoney(current)}
                           </div>
                         )}
-                      </>
+                      </div>
+                    </div>
+                    {budgetAmt > 0 && (
+                      <div className="h-1.5 w-full bg-background rounded-full overflow-hidden">
+                        <div
+                          className="h-full transition-all duration-500 ease-out rounded-full"
+                          style={{
+                            width: `${pct}%`,
+                            backgroundColor: overBudget ? 'hsl(var(--destructive))' : a.color
+                          }}
+                        />
+                      </div>
                     )}
-                  </div>
-                </div>
-                {budgetAmt > 0 && !editing && (
-                  <div className="h-1.5 w-full bg-background rounded-full overflow-hidden">
-                    <div
-                      className="h-full transition-all duration-500 ease-out rounded-full"
-                      style={{
-                        width: `${pct}%`,
-                        backgroundColor: overBudget ? 'hsl(var(--destructive))' : a.color
-                      }}
-                    />
-                  </div>
+                  </>
                 )}
               </div>
             );
@@ -186,6 +216,32 @@ export function BudgetTab() {
           <span className={`text-xl font-bold font-mono ${leftover < 0 ? 'text-destructive' : leftover < 50 ? 'text-warning' : 'text-success'}`}>
             {formatMoney(leftover)}
           </span>
+        </div>
+      </div>
+
+      <div className="glass-panel p-5 border-primary/10 bg-primary/3">
+        <div className="flex items-start gap-3">
+          <span className="text-2xl">🏛️</span>
+          <div>
+            <div className="text-sm font-bold text-foreground mb-1">Where do taxes fit?</div>
+            <p className="text-xs text-muted-foreground leading-relaxed mb-2">
+              There are a few ways to handle taxes in this app depending on your situation:
+            </p>
+            <div className="space-y-2">
+              <div className="p-2.5 bg-white/5 rounded-lg border border-white/10">
+                <div className="text-xs font-semibold text-foreground mb-0.5">Tax refund coming</div>
+                <div className="text-xs text-muted-foreground">Add the refund to your checking balance when you do your next New Paycheck — treat it like extra income for that cycle.</div>
+              </div>
+              <div className="p-2.5 bg-white/5 rounded-lg border border-white/10">
+                <div className="text-xs font-semibold text-foreground mb-0.5">Tax bill you owe</div>
+                <div className="text-xs text-muted-foreground">Log it as a one-time expense under the "Taxes / IRS" category, or add it to Bills if you're paying in installments.</div>
+              </div>
+              <div className="p-2.5 bg-white/5 rounded-lg border border-white/10">
+                <div className="text-xs font-semibold text-foreground mb-0.5">Self-employed / quarterly taxes</div>
+                <div className="text-xs text-muted-foreground">Set a budget amount on the "Taxes / IRS" category above so money gets reserved each cycle. Add a recurring bill for each quarterly payment due date.</div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -6,13 +6,22 @@ export const formatMoney = (n: number | string | undefined | null): string => {
   return (num < 0 ? "-$" : "$") + Math.abs(num).toFixed(2);
 };
 
-export const getAllocs = (phase: number, overridesJson?: string | null) => {
+export const getAllocs = (phase: number, overridesJson?: string | null, namesJson?: string | null) => {
   const base = (phase === 1 ? PHASE1_ALLOCS : PHASE2_ALLOCS).map(a => ({ ...a }));
-  if (!overridesJson) return base;
-  try {
-    const overrides = JSON.parse(overridesJson);
-    return base.map(a => overrides[a.id] !== undefined ? { ...a, recommended: Number(overrides[a.id]) } : a);
-  } catch { return base; }
+  let result = base;
+  if (overridesJson) {
+    try {
+      const overrides = JSON.parse(overridesJson);
+      result = result.map(a => overrides[a.id] !== undefined ? { ...a, recommended: Number(overrides[a.id]) } : a);
+    } catch {}
+  }
+  if (namesJson) {
+    try {
+      const names = JSON.parse(namesJson);
+      result = result.map(a => names[a.id] ? { ...a, name: String(names[a.id]) } : a);
+    } catch {}
+  }
+  return result;
 };
 
 export const normalizeBills = (bills?: RecurringBill[] | null) => {

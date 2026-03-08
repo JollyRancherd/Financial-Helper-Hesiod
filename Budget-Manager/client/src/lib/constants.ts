@@ -38,6 +38,8 @@ export const PHASE1_ALLOCS: Allocation[] = [
   { id: "entertainment", name: "Fun Money", recommended: 100, color: "hsl(var(--accent))", icon: "🎉", note: "You deserve some" },
   { id: "savings", name: "Savings", recommended: 0, color: "hsl(var(--success))", icon: "💰", note: "Paused — starts Phase 2" },
   { id: "apartment", name: "Savings Fund", recommended: 0, color: "hsl(var(--warning))", icon: "💰", note: "Starts after debt is gone" },
+  { id: "taxes", name: "Taxes / IRS", recommended: 0, color: "hsl(var(--muted-foreground))", icon: "🏛️", note: "Set an amount to reserve for taxes" },
+  { id: "misc", name: "Other / Flexible", recommended: 0, color: "hsl(var(--primary))", icon: "📦", note: "Rename this to whatever you need" },
 ];
 
 export const PHASE2_ALLOCS: Allocation[] = [
@@ -48,4 +50,6 @@ export const PHASE2_ALLOCS: Allocation[] = [
   { id: "gas", name: "Gas", recommended: 35, color: "hsl(var(--warning))", icon: "⛽", note: "Driving cushion" },
   { id: "mom", name: "Family / Give Back", recommended: 500, color: "hsl(var(--destructive))", icon: "❤️", note: "Optional once stable" },
   { id: "entertainment", name: "Fun Money", recommended: 150, color: "hsl(var(--accent))", icon: "🎉", note: "You earned this!" },
+  { id: "taxes", name: "Taxes / IRS", recommended: 0, color: "hsl(var(--muted-foreground))", icon: "🏛️", note: "Set an amount to reserve for taxes" },
+  { id: "misc", name: "Other / Flexible", recommended: 0, color: "hsl(var(--primary))", icon: "📦", note: "Rename this to whatever you need" },
 ];

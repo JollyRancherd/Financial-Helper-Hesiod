@@ -68,7 +68,7 @@ export function DashboardTab() {
     return { assets, debt, total: assets - debt };
   }, [settings]);
 
-  const allocs = useMemo(() => getAllocs(settings?.phase || 1, (settings as any)?.allocOverrides), [settings?.phase, (settings as any)?.allocOverrides]);
+  const allocs = useMemo(() => getAllocs(settings?.phase || 1, (settings as any)?.allocOverrides, (settings as any)?.allocNames), [settings?.phase, (settings as any)?.allocOverrides, (settings as any)?.allocNames]);
 
   const qaAllocIdEffective = qaAllocId || allocs.filter(a => a.recommended > 0)[0]?.id || "";
 

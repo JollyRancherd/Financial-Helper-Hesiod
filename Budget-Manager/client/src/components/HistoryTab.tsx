@@ -18,7 +18,12 @@ export function HistoryTab() {
   const [search, setSearch] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
-  const allAllocs = [...getAllocs(1), ...getAllocs(2)];
+  const overridesJson = (settings as any)?.allocOverrides;
+  const namesJson = (settings as any)?.allocNames;
+  const allAllocs = [
+    ...getAllocs(1, overridesJson, namesJson),
+    ...getAllocs(2, overridesJson, namesJson).filter(a2 => !getAllocs(1).some(a1 => a1.id === a2.id))
+  ];
   const total = getSpentThisMonth(expenses || []);
   const spentByAlloc = getSpentByAlloc(expenses || []);
 

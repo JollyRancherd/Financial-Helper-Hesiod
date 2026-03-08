@@ -35,7 +35,8 @@ export function GoalsTab() {
 
   const phase = settings?.phase || 1;
   const overridesJson = (settings as any)?.allocOverrides || "{}";
-  const allocs = getAllocs(phase, overridesJson);
+  const namesJson = (settings as any)?.allocNames || "{}";
+  const allocs = getAllocs(phase, overridesJson, namesJson);
   const spent = getSpentByAlloc(expenses || []);
 
   const sweepableCategories = useMemo(() => {
